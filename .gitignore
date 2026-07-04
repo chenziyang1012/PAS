@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Compiled JS artifacts next to source files
+frontend/src/**/*.js
+frontend/src/**/*.vue.js
+
+# Uploads
+backend/uploads/
+
+# Kiro / editor
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
