@@ -10,12 +10,15 @@ router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 @router.get("/pending")
 def list_pending(
     page: int = 1, page_size: int = 20, keyword: str | None = None,
+    creator_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("reviewer", "admin")),
 ):
     q = db.query(Product).filter(Product.status == "pending_review")
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
+    if creator_id:
+        q = q.filter(Product.creator_id == creator_id)
     total = q.count()
     items = q.order_by(Product.submit_time.asc()).offset((page - 1) * page_size).limit(page_size).all()
     from app.schemas import ProductOut
@@ -40,12 +43,22 @@ def approve(product_id: int, db: Session = Depends(get_db), current_user: User =
 
 @router.post("/{product_id}/reject")
 def reject(product_id: int, body: ReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles("reviewer", "admin"))):
-    if not body.reason:
-        raise HTTPException(status_code=400, detail="驳回原因必填")
+    if not body.reject_type:
+        raise HTTPException(status_code=400, detail="请选择驳回类型")
     product = db.get(Product, product_id)
     if not product or product.status != "pending_review":
         raise HTTPException(status_code=400, detail="产品不存在或状态不正确")
     product.status = "rejected"
-    db.add(Review(product_id=product.id, reviewer_id=current_user.id, result="rejected", reason=body.reason))
+    if body.reject_type == "infringe":
+        product.special_tag = "infringe"
+    elif body.reject_type == "done":
+        product.special_tag = "done"
+    db.add(Review(
+        product_id=product.id,
+        reviewer_id=current_user.id,
+        result="rejected",
+        reject_type=body.reject_type,
+        reason=body.reason,
+    ))
     db.commit()
     return Resp()

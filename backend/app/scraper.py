@@ -1,0 +1,235 @@
+"""Scrape product title, main image, and manufacturer from a URL."""
+import json
+import re
+from urllib.parse import urljoin
+
+try:
+    import httpx
+    from bs4 import BeautifulSoup
+    _DEPS_OK = True
+except ImportError:
+    _DEPS_OK = False
+
+try:
+    from curl_cffi import requests as cffi_requests
+    _CFFI_OK = True
+except ImportError:
+    _CFFI_OK = False
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+}
+
+
+def scrape_product(url: str, cookie_1688: str | None = None) -> dict:
+    if not _DEPS_OK:
+        return {"title": None, "image": None, "manufacturer": None, "error": "scraping deps not installed"}
+
+    if "1688.com" in url:
+        return _scrape_1688(url, cookie_1688)
+
+    return _scrape_generic(url)
+
+
+def _scrape_generic(url: str) -> dict:
+    try:
+        with httpx.Client(timeout=10, follow_redirects=True, headers=HEADERS) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        title = (
+            _meta(soup, "og:title")
+            or _meta(soup, "twitter:title")
+            or (soup.title.string.strip() if soup.title and soup.title.string else None)
+        )
+        image = (
+            _meta(soup, "og:image")
+            or _meta(soup, "twitter:image")
+            or _first_img(soup)
+        )
+        if image and not image.startswith(("http://", "https://")):
+            image = urljoin(url, image)
+        manufacturer = (
+            _meta(soup, "product:brand")
+            or _meta(soup, "og:site_name")
+            or _meta(soup, "author")
+            or _json_ld_brand(soup)
+        )
+
+        if title:
+            title = re.sub(r"\s+", " ", title).strip()[:255]
+        if manufacturer:
+            manufacturer = re.sub(r"\s+", " ", manufacturer).strip()[:100]
+
+        return {"title": title, "image": image, "manufacturer": manufacturer}
+    except Exception as e:
+        return {"title": None, "image": None, "manufacturer": None, "error": str(e)}
+
+
+def _scrape_1688(url: str, cookie_override: str | None = None) -> dict:
+    """Scrape 1688.com using configured cookies (login required)."""
+    from app.config import settings
+
+    cookie_str = cookie_override or settings.COOKIE_1688
+    if not cookie_str:
+        return {
+            "title": None, "image": None, "manufacturer": None,
+            "error": "未配置1688 Cookie，请在系统设置中配置（管理员 -> 系统设置 -> 1688 Cookie）",
+        }
+
+    if not _CFFI_OK:
+        return {
+            "title": None, "image": None, "manufacturer": None,
+            "error": "curl_cffi 未安装",
+        }
+
+    try:
+        resp = cffi_requests.get(
+            url,
+            impersonate="chrome120",
+            timeout=15,
+            headers={
+                **HEADERS,
+                "Referer": "https://www.1688.com/",
+                "Cookie": cookie_str,
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-site",
+            },
+        )
+        resp.raise_for_status()
+        html = resp.text
+
+        if "punish-component" in html or "g.alicdn.com/sd/punish" in html:
+            return {
+                "title": None, "image": None, "manufacturer": None,
+                "error": "1688 触发了安全验证（人机检测），请稍后重试或更换IP/Cookie",
+            }
+
+        if len(html) < 10000 and ("login" in html.lower() or "signin" in html):
+            return {
+                "title": None, "image": None, "manufacturer": None,
+                "error": "1688 Cookie 已失效，请重新配置",
+            }
+
+        soup = BeautifulSoup(html, "html.parser")
+        title = None
+        image = None
+        manufacturer = None
+
+        # --- Title ---
+        raw_title = None
+        if soup.title and soup.title.string:
+            raw_title = soup.title.string.strip()
+        if not raw_title:
+            raw_title = _meta(soup, "og:title") or _meta(soup, "twitter:title")
+        if raw_title:
+            for suffix in ["-1688.com", "-阿里巴巴", "- 阿里巴巴"]:
+                if raw_title.endswith(suffix):
+                    raw_title = raw_title[: -len(suffix)].strip()
+            parts = raw_title.rsplit("-", 1)
+            title = parts[0].strip()
+            if len(parts) >= 2:
+                manufacturer = parts[-1].strip()
+
+        # --- Image from meta tags ---
+        image = _meta(soup, "og:image") or _meta(soup, "twitter:image")
+        if image and image.startswith("//"):
+            image = "https:" + image
+
+        # --- Extract from embedded JSON / script data ---
+        if not image:
+            img_patterns = [
+                r'"imageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+                r'"imgUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+                r'"originalImageURI"\s*:\s*"((?:https?:)?//[^"]+)"',
+                r'"searchImageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+                r'"image"\s*:\s*"((?:https?:)?//[^"]+alicdn\.com[^"]*)"',
+            ]
+            for pattern in img_patterns:
+                m = re.search(pattern, html)
+                if m:
+                    image = m.group(1)
+                    if image.startswith("//"):
+                        image = "https:" + image
+                    break
+
+        # --- Try alicdn img tags ---
+        if not image:
+            for img in soup.find_all("img"):
+                src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+                if src and "alicdn.com" in src and not src.endswith((".gif", ".ico")):
+                    if src.startswith("//"):
+                        src = "https:" + src
+                    image = src
+                    break
+
+        # --- Manufacturer from script data ---
+        if not manufacturer:
+            company_patterns = [
+                r'"companyName"\s*:\s*"([^"]+)"',
+                r'"supplierName"\s*:\s*"([^"]+)"',
+                r'"sellerName"\s*:\s*"([^"]+)"',
+            ]
+            for pattern in company_patterns:
+                m = re.search(pattern, html)
+                if m:
+                    manufacturer = m.group(1)
+                    break
+
+        if title:
+            title = re.sub(r"\s+", " ", title).strip()[:255]
+        if manufacturer:
+            manufacturer = re.sub(r"\s+", " ", manufacturer).strip()[:100]
+
+        return {"title": title, "image": image, "manufacturer": manufacturer}
+    except Exception as e:
+        return {"title": None, "image": None, "manufacturer": None, "error": str(e)}
+
+
+# ---- shared helpers ----
+
+def _first_img(soup) -> str | None:
+    for img in soup.find_all("img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src") or img.get("data-original")
+        if not src or src.startswith("data:"):
+            continue
+        try:
+            w = int(img.get("width", 0) or 0)
+            h = int(img.get("height", 0) or 0)
+            if (w and w < 80) or (h and h < 80):
+                continue
+        except (ValueError, TypeError):
+            pass
+        return src
+    return None
+
+
+def _meta(soup, property_name: str) -> str | None:
+    tag = soup.find("meta", property=property_name) or soup.find("meta", attrs={"name": property_name})
+    if tag and tag.get("content"):
+        return tag["content"].strip() or None
+    return None
+
+
+def _json_ld_brand(soup) -> str | None:
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+            if isinstance(data, list):
+                data = data[0]
+            brand = data.get("brand")
+            if isinstance(brand, dict):
+                return brand.get("name")
+            if isinstance(brand, str):
+                return brand
+        except Exception:
+            pass
+    return None

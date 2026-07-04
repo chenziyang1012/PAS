@@ -46,6 +46,8 @@ class ImageOut(BaseModel):
 class ProductCreate(BaseModel):
     product_name: str
     product_link: str | None = None
+    main_image: str | None = None
+    manufacturer: str | None = None
     category: str | None = None
     description: str | None = None
     images: list[str] = []
@@ -54,17 +56,36 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     product_name: str | None = None
     product_link: str | None = None
+    main_image: str | None = None
+    manufacturer: str | None = None
     category: str | None = None
     description: str | None = None
     images: list[str] | None = None
+
+class BulkCreateRequest(BaseModel):
+    urls: list[str]
+    special_tag: str | None = None  # 'done' | 'infringe' | None
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[int]
+
+class BulkCompleteRequest(BaseModel):
+    ids: list[int]
+
+class ScrapeRequest(BaseModel):
+    url: str
 
 class ProductOut(BaseModel):
     id: int
     product_name: str
     product_link: str | None
+    main_image: str | None
+    manufacturer: str | None
     category: str | None
     description: str | None
     status: str
+    is_completed: bool
+    special_tag: str | None
     creator_id: int
     submit_time: datetime | None
     created_at: datetime
@@ -74,6 +95,7 @@ class ProductOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class ReviewCreate(BaseModel):
+    reject_type: str | None = None
     reason: str | None = None
 
 class ReviewOut(BaseModel):
@@ -81,6 +103,7 @@ class ReviewOut(BaseModel):
     product_id: int
     reviewer_id: int
     result: str
+    reject_type: str | None
     reason: str | None
     created_at: datetime
     reviewer: UserOut | None = None
@@ -93,3 +116,6 @@ class Resp(BaseModel):
     code: int = 0
     message: str = "ok"
     data: object = None
+
+class CookieSettingRequest(BaseModel):
+    cookie_1688: str

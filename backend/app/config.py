@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     UPLOAD_DIR: str = "uploads"
+    COOKIE_1688: str = ""
 
     class Config:
         env_file = ".env"
