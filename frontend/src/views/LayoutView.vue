@@ -6,7 +6,7 @@
         <el-menu-item index="/dashboard"><el-icon><House /></el-icon>工作台</el-menu-item>
         <el-menu-item index="/products"><el-icon><Goods /></el-icon>产品列表</el-menu-item>
         <el-menu-item v-if="auth.user?.role !== 'selector'" index="/reviews"><el-icon><Check /></el-icon>待审核</el-menu-item>
-        <el-menu-item index="/done"><el-icon><Finished /></el-icon>已做</el-menu-item>
+        <el-menu-item index="/done"><el-icon><Finished /></el-icon>已做产品</el-menu-item>
         <el-menu-item index="/infringe"><el-icon><Warning /></el-icon>侵权产品</el-menu-item>
         <el-menu-item v-if="auth.user?.role === 'admin'" index="/users"><el-icon><User /></el-icon>用户管理</el-menu-item>
         <el-menu-item index="/settings"><el-icon><Setting /></el-icon>系统设置</el-menu-item>

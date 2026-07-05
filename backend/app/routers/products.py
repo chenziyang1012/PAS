@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, date
+from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -99,8 +100,24 @@ def list_infringe(
     items = q.order_by(Product.updated_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return Resp(data={"total": total, "items": [ProductOut.model_validate(p) for p in items]})
 
+_ALLOWED_SCRAPE_HOSTS = {"1688.com", "www.1688.com", "detail.1688.com", "s.1688.com"}
+
+def _validate_scrape_url(url: str) -> None:
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=400, detail="URL 格式不合法")
+        host = parsed.netloc.lower().split(":")[0]
+        if host not in _ALLOWED_SCRAPE_HOSTS and not host.endswith(".1688.com"):
+            raise HTTPException(status_code=400, detail="仅支持抓取 1688.com 域名的商品")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="URL 格式不合法")
+
 @router.post("/scrape")
 def scrape(body: ScrapeRequest, current_user: User = Depends(get_current_user)):
+    _validate_scrape_url(body.url)
     result = scrape_product(body.url, current_user.cookie_1688)
     return Resp(data=result)
 
@@ -160,6 +177,8 @@ def bulk_complete(
         raise HTTPException(status_code=403, detail="无权操作")
     items = db.query(Product).filter(Product.id.in_(body.ids)).all()
     for p in items:
+        if current_user.role != "admin" and p.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail=f"无权操作产品 {p.id}")
         if p.status != "approved":
             raise HTTPException(status_code=400, detail=f"产品 {p.product_name} 未通过审核，无法标记完成")
         p.is_completed = True
@@ -276,6 +295,8 @@ def toggle_complete(
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="产品不存在")
+    if current_user.role != "admin" and product.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权操作")
     if product.status != "approved":
         raise HTTPException(status_code=400, detail="只有已通过审核的产品才能标记完成")
     product.is_completed = True

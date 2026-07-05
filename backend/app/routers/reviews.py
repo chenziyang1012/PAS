@@ -33,7 +33,7 @@ def review_detail(product_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/{product_id}/approve")
 def approve(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles("reviewer", "admin"))):
-    product = db.get(Product, product_id)
+    product = db.query(Product).filter(Product.id == product_id).with_for_update().first()
     if not product or product.status != "pending_review":
         raise HTTPException(status_code=400, detail="产品不存在或状态不正确")
     product.status = "approved"
@@ -45,14 +45,11 @@ def approve(product_id: int, db: Session = Depends(get_db), current_user: User =
 def reject(product_id: int, body: ReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles("reviewer", "admin"))):
     if not body.reject_type:
         raise HTTPException(status_code=400, detail="请选择驳回类型")
-    product = db.get(Product, product_id)
+    product = db.query(Product).filter(Product.id == product_id).with_for_update().first()
     if not product or product.status != "pending_review":
         raise HTTPException(status_code=400, detail="产品不存在或状态不正确")
     product.status = "rejected"
-    if body.reject_type == "infringe":
-        product.special_tag = "infringe"
-    elif body.reject_type == "done":
-        product.special_tag = "done"
+    product.special_tag = body.reject_type  # schema already enforces "infringe" | "done"
     db.add(Review(
         product_id=product.id,
         reviewer_id=current_user.id,

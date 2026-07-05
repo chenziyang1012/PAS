@@ -27,8 +27,11 @@ def get_current_user(
 ) -> User:
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=["HS256"])
-        user_id: int = int(payload.get("sub"))
-    except JWTError:
+        sub = payload.get("sub")
+        if sub is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        user_id: int = int(sub)
+    except (JWTError, ValueError, TypeError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user = db.get(User, user_id)
     if not user or user.status == "disabled":

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel
 
 class Token(BaseModel):
@@ -22,17 +23,17 @@ class UserCreate(BaseModel):
     username: str
     password: str
     real_name: str
-    role: str
-    status: str = "enabled"
+    role: Literal["admin", "selector", "reviewer"]
+    status: Literal["enabled", "disabled"] = "enabled"
 
 class UserUpdate(BaseModel):
     real_name: str | None = None
-    role: str | None = None
-    status: str | None = None
+    role: Literal["admin", "selector", "reviewer"] | None = None
+    status: Literal["enabled", "disabled"] | None = None
     password: str | None = None
 
 class UserStatusUpdate(BaseModel):
-    status: str
+    status: Literal["enabled", "disabled"]
 
 class ResetPasswordRequest(BaseModel):
     new_password: str
@@ -95,7 +96,7 @@ class ProductOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class ReviewCreate(BaseModel):
-    reject_type: str | None = None
+    reject_type: Literal["infringe", "done"] | None = None
     reason: str | None = None
 
 class ReviewOut(BaseModel):
