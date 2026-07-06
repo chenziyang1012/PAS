@@ -114,7 +114,27 @@ function updateBookmarklet() {}
 const bookmarkletCode = computed(() => {
   const baseUrl = window.location.origin
   const tag = bookmarkletTag.value
-  return `javascript:void(function(){if(!location.hostname.includes('1688.com')){alert('请在1688商品页面使用');return;}var t=document.title||'';var suffixes=['-1688.com','-阿里巴巴','- 阿里巴巴'];for(var i=0;i<suffixes.length;i++){if(t.endsWith(suffixes[i]))t=t.slice(0,-suffixes[i].length).trim();}var parts=t.split('-');var title=parts.slice(0,-1).join('-').trim()||t;var mfr=parts.length>1?parts[parts.length-1].trim():'';var img='';var m=document.querySelector('meta[property="og:image"]');if(m)img=m.content;if(!img){var ms=document.querySelectorAll('img');for(var j=0;j<ms.length;j++){var s=ms[j].src||ms[j].dataset.src||'';if(s.indexOf('alicdn.com')>-1&&s.indexOf('.gif')<0){img=s;break;}}}if(img&&img.startsWith('//'))img='https:'+img;var u='${baseUrl}/bookmarklet-import?title='+encodeURIComponent(title)+'&url='+encodeURIComponent(location.href)+'&image='+encodeURIComponent(img)+'&manufacturer='+encodeURIComponent(mfr)+'&tag=${tag}';window.open(u,'_blank');})()`
+  // Bookmarklet: extract title, image, manufacturer from 1688 product page
+  // Uses multiple strategies matching scraper.py logic
+  const code = `javascript:void(function(){
+if(!location.hostname.includes('1688.com')){alert('请在1688商品页面使用');return;}
+var h=document.documentElement.innerHTML;
+var t=document.title||'';
+var suffixes=['-1688.com','-阿里巴巴','- 阿里巴巴'];
+for(var i=0;i<suffixes.length;i++){if(t.endsWith(suffixes[i]))t=t.slice(0,-suffixes[i].length).trim();}
+var parts=t.split('-');
+var title=parts.slice(0,-1).join('-').trim()||t;
+var mfr=parts.length>1?parts[parts.length-1].trim():'';
+var img='';
+var imgPats=[/"imageUrl"\\s*:\\s*"((?:https?:)?\\/\\/[^"]+)"/,/"imgUrl"\\s*:\\s*"((?:https?:)?\\/\\/[^"]+)"/,/"originalImageURI"\\s*:\\s*"((?:https?:)?\\/\\/[^"]+)"/,/"searchImageUrl"\\s*:\\s*"((?:https?:)?\\/\\/[^"]+)"/,/"image"\\s*:\\s*"((?:https?:)?\\/\\/[^"]*alicdn\\.com[^"]*)"/];
+for(var p=0;p<imgPats.length;p++){var mm=h.match(imgPats[p]);if(mm){img=mm[1];break;}}
+if(!img){var imgs=document.querySelectorAll('img');for(var j=0;j<imgs.length;j++){var s=imgs[j].src||imgs[j].dataset.src||imgs[j].dataset.lazySrc||'';if(s.indexOf('alicdn.com')>-1&&s.indexOf('.gif')<0&&s.indexOf('.svg')<0&&s.indexOf('.ico')<0){var w=parseInt(imgs[j].width||0);var ht=parseInt(imgs[j].height||0);if((w&&w<50)||(ht&&ht<50))continue;img=s;break;}}}
+if(img&&img.startsWith('//'))img='https:'+img;
+if(!mfr){var mfrPats=[/"companyName"\\s*:\\s*"([^"]+)"/,/"supplierName"\\s*:\\s*"([^"]+)"/,/"sellerName"\\s*:\\s*"([^"]+)"/];for(var k=0;k<mfrPats.length;k++){var mf=h.match(mfrPats[k]);if(mf){mfr=mf[1];break;}}}
+var u='${baseUrl}/bookmarklet-import?title='+encodeURIComponent(title)+'&url='+encodeURIComponent(location.href)+'&image='+encodeURIComponent(img)+'&manufacturer='+encodeURIComponent(mfr)+'&tag=${tag}';
+window.open(u,'_blank');
+})()`
+  return code.replace(/\n/g, '')
 })
 
 async function loadStatus() {
