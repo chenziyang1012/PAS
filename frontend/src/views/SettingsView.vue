@@ -57,12 +57,39 @@
           <el-button type="primary" :loading="savingGlobal" @click="saveGlobalCookie">保存全局 Cookie</el-button>
         </div>
       </template>
+
+      <el-divider />
+      <h3 style="margin-bottom:16px">1688 采集书签工具</h3>
+      <el-alert type="success" :closable="false" style="margin-bottom:16px">
+        <p>将下方按钮拖到浏览器书签栏，即可在 1688 商品页面一键采集产品信息到系统中，无需配置 Cookie。</p>
+        <ol style="margin:8px 0 0 16px;line-height:2">
+          <li>将下方的 <b>"采集到系统"</b> 按钮<b>拖拽</b>到浏览器书签栏</li>
+          <li>打开任意 1688 商品详情页</li>
+          <li>点击书签栏中的 "采集到系统" 按钮</li>
+          <li>系统会自动提取产品标题、主图、厂家并导入</li>
+        </ol>
+      </el-alert>
+      <div style="margin-bottom:12px">
+        <span style="margin-right:8px">书签按钮（拖到书签栏）：</span>
+        <a :href="bookmarkletCode" class="bookmarklet-btn" @click.prevent="ElMessage.info('请将此按钮拖拽到浏览器书签栏')">采集到系统</a>
+      </div>
+      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+        <span>导入目标：</span>
+        <el-radio-group v-model="bookmarkletTag" @change="updateBookmarklet">
+          <el-radio-button label="">产品列表</el-radio-button>
+          <el-radio-button label="done">已做产品</el-radio-button>
+          <el-radio-button label="infringe">侵权产品</el-radio-button>
+        </el-radio-group>
+      </div>
+      <el-alert type="info" :closable="false">
+        <p>切换"导入目标"后需要重新拖拽书签按钮到书签栏。不同目标可以保存多个书签。</p>
+      </el-alert>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { productApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -79,6 +106,16 @@ const testResult = ref<any>(null)
 const globalCookieValue = ref('')
 const globalConfigured = ref(false)
 const savingGlobal = ref(false)
+
+const bookmarkletTag = ref('')
+
+function updateBookmarklet() {}
+
+const bookmarkletCode = computed(() => {
+  const baseUrl = window.location.origin
+  const tag = bookmarkletTag.value
+  return `javascript:void(function(){if(!location.hostname.includes('1688.com')){alert('请在1688商品页面使用');return;}var t=document.title||'';var suffixes=['-1688.com','-阿里巴巴','- 阿里巴巴'];for(var i=0;i<suffixes.length;i++){if(t.endsWith(suffixes[i]))t=t.slice(0,-suffixes[i].length).trim();}var parts=t.split('-');var title=parts.slice(0,-1).join('-').trim()||t;var mfr=parts.length>1?parts[parts.length-1].trim():'';var img='';var m=document.querySelector('meta[property="og:image"]');if(m)img=m.content;if(!img){var ms=document.querySelectorAll('img');for(var j=0;j<ms.length;j++){var s=ms[j].src||ms[j].dataset.src||'';if(s.indexOf('alicdn.com')>-1&&s.indexOf('.gif')<0){img=s;break;}}}if(img&&img.startsWith('//'))img='https:'+img;var u='${baseUrl}/bookmarklet-import?title='+encodeURIComponent(title)+'&url='+encodeURIComponent(location.href)+'&image='+encodeURIComponent(img)+'&manufacturer='+encodeURIComponent(mfr)+'&tag=${tag}';window.open(u,'_blank');})()`
+})
 
 async function loadStatus() {
   try {
@@ -151,3 +188,22 @@ async function saveGlobalCookie() {
 
 onMounted(loadStatus)
 </script>
+
+<style scoped>
+.bookmarklet-btn {
+  display: inline-block;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #409EFF, #337ecc);
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.4);
+}
+.bookmarklet-btn:hover {
+  background: linear-gradient(135deg, #66b1ff, #409EFF);
+}
+</style>

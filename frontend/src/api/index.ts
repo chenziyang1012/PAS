@@ -44,6 +44,7 @@ export const productApi = {
   bulkDelete: (ids: number[]) => http.delete('/api/products/bulk', { data: { ids } }),
   bulkComplete: (ids: number[]) => http.patch('/api/products/bulk-complete', { ids }),
   scrape: (url: string) => http.post('/api/products/scrape', { url }),
+  fromBookmarklet: (data: object) => http.post('/api/products/from-bookmarklet', data),
   listDone: (params?: object) => http.get('/api/products/done', { params }),
   listInfringe: (params?: object) => http.get('/api/products/infringe', { params }),
   getCookie1688: () => http.get('/api/products/settings/cookie-1688'),

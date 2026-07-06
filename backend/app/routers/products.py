@@ -209,6 +209,31 @@ def create_product(body: ProductCreate, db: Session = Depends(get_db), current_u
     db.refresh(product)
     return Resp(data=ProductOut.model_validate(product))
 
+@router.post("/from-bookmarklet")
+def from_bookmarklet(
+    body: ProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in ("selector", "admin"):
+        raise HTTPException(status_code=403, detail="无权创建产品")
+    product = Product(
+        product_name=body.product_name,
+        product_link=body.product_link,
+        main_image=body.main_image,
+        manufacturer=body.manufacturer,
+        status="draft",
+        special_tag=body.category,
+        creator_id=current_user.id,
+    )
+    db.add(product)
+    db.flush()
+    if body.main_image:
+        db.add(ProductImage(product_id=product.id, url=body.main_image, sort_order=0))
+    db.commit()
+    db.refresh(product)
+    return Resp(data=ProductOut.model_validate(product))
+
 @router.get("/settings/cookie-1688")
 def get_cookie_1688(current_user: User = Depends(require_roles("admin"))):
     from app.config import settings
