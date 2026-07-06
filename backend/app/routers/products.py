@@ -219,7 +219,7 @@ def get_cookie_1688(current_user: User = Depends(require_roles("admin"))):
 @router.put("/settings/cookie-1688")
 def set_cookie_1688(body: CookieSettingRequest, current_user: User = Depends(require_roles("admin"))):
     import os
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
     lines = []
     found = False
     if os.path.exists(env_path):
