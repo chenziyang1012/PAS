@@ -132,7 +132,7 @@ if(!img){var imgs=document.querySelectorAll('img');for(var j=0;j<imgs.length;j++
 if(img&&img.startsWith('//'))img='https:'+img;
 if(!mfr){var mfrPats=[/"companyName"\\s*:\\s*"([^"]+)"/,/"supplierName"\\s*:\\s*"([^"]+)"/,/"sellerName"\\s*:\\s*"([^"]+)"/];for(var k=0;k<mfrPats.length;k++){var mf=h.match(mfrPats[k]);if(mf){mfr=mf[1];break;}}}
 var u='${baseUrl}/bookmarklet-import?title='+encodeURIComponent(title)+'&url='+encodeURIComponent(location.href)+'&image='+encodeURIComponent(img)+'&manufacturer='+encodeURIComponent(mfr)+'&tag=${tag}';
-window.open(u,'_blank');
+window.open(u,'prs_import');
 })()`
   return code.replace(/\n/g, '')
 })
