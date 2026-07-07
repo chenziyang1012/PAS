@@ -61,7 +61,7 @@
       <el-divider />
       <h3 style="margin-bottom:16px">1688 采集书签工具</h3>
       <el-alert type="success" :closable="false" style="margin-bottom:16px">
-        <p>将下方按钮拖到浏览器书签栏，即可在 1688 商品页面一键采集产品信息到系统中，无需配置 Cookie，无需打开新窗口。</p>
+        <p>将下方按钮拖到浏览器书签栏，即可在 1688 商品页面一键采集产品信息到系统中，无需配置 Cookie。采集后会自动返回商品页面。</p>
         <ol style="margin:8px 0 0 16px;line-height:2">
           <li>将下方的 <b>"采集到系统"</b> 按钮<b>拖拽</b>到浏览器书签栏</li>
           <li>打开任意 1688 商品详情页</li>
@@ -82,7 +82,7 @@
         </el-radio-group>
       </div>
       <el-alert type="info" :closable="false">
-        <p>切换"导入目标"后需要重新拖拽书签按钮到书签栏。登录过期后也需要重新拖拽。</p>
+        <p>切换"导入目标"后需要重新拖拽书签按钮到书签栏。</p>
       </el-alert>
     </el-card>
   </div>
@@ -114,7 +114,6 @@ function updateBookmarklet() {}
 const bookmarkletCode = computed(() => {
   const baseUrl = window.location.origin
   const tag = bookmarkletTag.value
-  const tk = auth.token
   const code = `javascript:void(function(){
 if(!location.hostname.includes('1688.com')){alert('请在1688商品页面使用');return;}
 var h=document.documentElement.innerHTML;
@@ -130,9 +129,8 @@ for(var p=0;p<imgPats.length;p++){var mm=h.match(imgPats[p]);if(mm){img=mm[1];br
 if(!img){var imgs=document.querySelectorAll('img');for(var j=0;j<imgs.length;j++){var s=imgs[j].src||imgs[j].dataset.src||imgs[j].dataset.lazySrc||'';if(s.indexOf('alicdn.com')>-1&&s.indexOf('.gif')<0&&s.indexOf('.svg')<0&&s.indexOf('.ico')<0){var w=parseInt(imgs[j].width||0);var ht=parseInt(imgs[j].height||0);if((w&&w<50)||(ht&&ht<50))continue;img=s;break;}}}
 if(img&&img.startsWith('//'))img='https:'+img;
 if(!mfr){var mfrPats=[/"companyName"\\s*:\\s*"([^"]+)"/,/"supplierName"\\s*:\\s*"([^"]+)"/,/"sellerName"\\s*:\\s*"([^"]+)"/];for(var k=0;k<mfrPats.length;k++){var mf=h.match(mfrPats[k]);if(mf){mfr=mf[1];break;}}}
-var el=document.getElementById('_prs_toast');if(!el){el=document.createElement('div');el.id='_prs_toast';el.style.cssText='position:fixed;top:20px;right:20px;z-index:2147483647;padding:16px 24px;border-radius:8px;font-size:14px;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:opacity .3s;font-family:sans-serif;max-width:360px;';document.body.appendChild(el);}
-el.style.background='#409EFF';el.style.opacity='1';el.textContent='正在导入: '+title.substring(0,30)+'...';
-fetch('${baseUrl}/api/products/from-bookmarklet',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${tk}'},body:JSON.stringify({product_name:title,product_link:location.href,main_image:img,manufacturer:mfr,category:'${tag}'||null})}).then(function(r){if(r.status===401){el.style.background='#E6A23C';el.textContent='登录已过期，请到系统设置页重新拖拽书签按钮';return;}return r.json();}).then(function(d){if(!d)return;if(d.code===200||d.data){el.style.background='#67C23A';el.textContent='导入成功: '+title.substring(0,40);}else{el.style.background='#F56C6C';el.textContent='导入失败: '+(d.detail||d.message||'未知错误');}setTimeout(function(){el.style.opacity='0';},3000);}).catch(function(e){el.style.background='#F56C6C';el.textContent='网络错误: '+e.message;setTimeout(function(){el.style.opacity='0';},3000);});
+var u='${baseUrl}/bookmarklet-import?title='+encodeURIComponent(title)+'&url='+encodeURIComponent(location.href)+'&image='+encodeURIComponent(img)+'&manufacturer='+encodeURIComponent(mfr)+'&tag=${tag}';
+location.href=u;
 })()`
   return code.replace(/\n/g, '')
 })

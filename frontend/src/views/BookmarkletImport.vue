@@ -16,16 +16,21 @@
           </el-descriptions-item>
           <el-descriptions-item label="厂家">{{ result?.manufacturer || '-' }}</el-descriptions-item>
         </el-descriptions>
-        <div style="margin-top:20px;display:flex;gap:8px;justify-content:center">
-          <el-button type="primary" @click="router.push(`/products/${result?.id}/edit`)">编辑产品</el-button>
-          <el-button @click="router.push('/products')">返回列表</el-button>
+        <p v-if="countdown > 0" style="margin-top:16px;color:#909399">{{ countdown }} 秒后自动返回...</p>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+          <el-button type="primary" @click="goBack">立即返回</el-button>
+          <el-button @click="cancelBack(); router.push(`/products/${result?.id}/edit`)">编辑产品</el-button>
+          <el-button @click="cancelBack(); router.push('/products')">留在系统</el-button>
         </div>
       </template>
       <template v-else-if="status === 'error'">
         <el-icon :size="48" style="color:#F56C6C"><CircleCloseFilled /></el-icon>
         <p style="margin-top:16px;font-size:16px;color:#F56C6C">导入失败</p>
         <p style="color:#909399">{{ errorMsg }}</p>
-        <el-button style="margin-top:16px" @click="router.push('/products')">返回列表</el-button>
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
+          <el-button type="primary" @click="goBack">返回 1688</el-button>
+          <el-button @click="router.push('/products')">返回列表</el-button>
+        </div>
       </template>
       <template v-else>
         <p>无效的导入请求</p>
@@ -36,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Loading, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import { productApi } from '@/api'
@@ -47,6 +52,33 @@ const loading = ref(false)
 const status = ref<'loading' | 'success' | 'error' | 'invalid'>('invalid')
 const result = ref<any>(null)
 const errorMsg = ref('')
+const countdown = ref(0)
+let timer: number | undefined
+
+function goBack() {
+  cancelBack()
+  const backUrl = route.query.url as string
+  if (backUrl) {
+    location.href = backUrl
+  } else {
+    history.back()
+  }
+}
+
+function cancelBack() {
+  if (timer) { clearInterval(timer); timer = undefined }
+  countdown.value = 0
+}
+
+function startCountdown() {
+  countdown.value = 3
+  timer = window.setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) goBack()
+  }, 1000)
+}
+
+onUnmounted(() => cancelBack())
 
 onMounted(async () => {
   const q = route.query
@@ -66,6 +98,7 @@ onMounted(async () => {
     })
     result.value = res.data
     status.value = 'success'
+    startCountdown()
   } catch (e: any) {
     errorMsg.value = e || '导入失败'
     status.value = 'error'
