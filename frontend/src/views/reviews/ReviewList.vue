@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { reviewApi, userApi } from '@/api'
@@ -152,5 +152,7 @@ async function batchApprove() {
   load()
 }
 
-onMounted(() => { load(); loadSelectors() })
+let _timer: ReturnType<typeof setInterval>
+onMounted(() => { load(); loadSelectors(); _timer = setInterval(load, 15000) })
+onUnmounted(() => clearInterval(_timer))
 </script>

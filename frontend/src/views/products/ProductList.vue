@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { productApi } from '@/api'
@@ -233,5 +233,7 @@ async function doBulkImport() {
   }
 }
 
-onMounted(() => { load() })
+let _timer: ReturnType<typeof setInterval>
+onMounted(() => { load(); _timer = setInterval(load, 15000) })
+onUnmounted(() => clearInterval(_timer))
 </script>
