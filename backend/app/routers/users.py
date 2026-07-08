@@ -79,3 +79,18 @@ def reset_password(user_id: int, body: ResetPasswordRequest, db: Session = Depen
     user.password_hash = hash_password(body.new_password)
     db.commit()
     return Resp()
+
+@router.delete("/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles("admin"))):
+    from fastapi import HTTPException
+    from app.models import Product
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="不能删除自己")
+    if db.query(Product).filter(Product.creator_id == user_id).first():
+        raise HTTPException(status_code=400, detail="该用户名下有商品，无法删除")
+    db.delete(user)
+    db.commit()
+    return Resp()

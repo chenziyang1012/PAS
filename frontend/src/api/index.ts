@@ -30,6 +30,7 @@ export const userApi = {
   update: (id: number, data: object) => http.put(`/api/users/${id}`, data),
   updateStatus: (id: number, status: string) => http.patch(`/api/users/${id}/status`, { status }),
   resetPassword: (id: number, new_password: string) => http.post(`/api/users/${id}/reset-password`, { new_password }),
+  delete: (id: number) => http.delete(`/api/users/${id}`),
 }
 
 export const productApi = {

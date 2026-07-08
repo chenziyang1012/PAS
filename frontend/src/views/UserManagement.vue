@@ -26,11 +26,12 @@
         <el-table-column prop="created_at" label="创建时间" width="160">
           <template #default="{row}">{{ row.created_at?.slice(0,19).replace('T',' ') }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220">
+        <el-table-column label="操作" width="280">
           <template #default="{row}">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
             <el-button size="small" :type="row.status==='enabled'?'warning':'success'" @click="toggleStatus(row)">{{ row.status==='enabled'?'禁用':'启用' }}</el-button>
             <el-button size="small" @click="resetPwd(row)">重置密码</el-button>
+            <el-button size="small" type="danger" @click="deleteUser(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -117,6 +118,17 @@ async function resetPwd(row: any) {
   const { value } = await ElMessageBox.prompt('请输入新密码', '重置密码', { inputType:'password' })
   await userApi.resetPassword(row.id, value)
   ElMessage.success('密码已重置')
+}
+
+async function deleteUser(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定要删除用户「${row.real_name || row.username}」吗？此操作不可撤销。`, '删除用户', { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' })
+    await userApi.delete(row.id)
+    ElMessage.success('用户已删除')
+    load()
+  } catch(e: any) {
+    if (e !== 'cancel') ElMessage.error(e || '删除失败')
+  }
 }
 
 onMounted(load)
