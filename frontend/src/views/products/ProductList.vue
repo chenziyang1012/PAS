@@ -77,7 +77,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination style="margin-top:16px" v-model:current-page="query.page" :page-size="20" :total="total" @current-change="load" layout="total,prev,pager,next" />
+      <el-pagination style="margin-top:16px" v-model:current-page="query.page" v-model:page-size="pageSize" :page-sizes="[20,50,100,200]" :total="total" @current-change="load" @size-change="onSizeChange" layout="total,sizes,prev,pager,next,jumper" />
     </el-card>
 
     <el-dialog v-model="bulkImportVisible" title="批量导入产品链接" width="500px">
@@ -110,6 +110,7 @@ const list = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
 const selected = ref<any[]>([])
+const pageSize = ref(20)
 const dateRange = ref<[string, string] | null>(null)
 const query = reactive({
   page: 1, keyword: '', status: '',
@@ -123,6 +124,8 @@ const bulkImportVisible = ref(false)
 const bulkUrls = ref('')
 const bulkLoading = ref(false)
 
+function onSizeChange() { query.page = 1; load() }
+
 function onDateChange(val: [string, string] | null) {
   query.date_from = val?.[0] || undefined
   query.date_to = val?.[1] || undefined
@@ -132,7 +135,7 @@ function onDateChange(val: [string, string] | null) {
 async function load() {
   loading.value = true
   try {
-    const res: any = await productApi.list({ ...query, page_size: 20 })
+    const res: any = await productApi.list({ ...query, page_size: pageSize.value })
     list.value = res.data.items; total.value = res.data.total
   } finally { loading.value = false }
 }
