@@ -5,6 +5,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
+    { path: '/bookmarklet-import', component: () => import('@/views/BookmarkletImport.vue'), meta: { public: true } },
     {
       path: '/',
       component: () => import('@/views/LayoutView.vue'),
@@ -21,7 +22,6 @@ const router = createRouter({
         { path: 'reviews/:id', component: () => import('@/views/reviews/ReviewDetail.vue'), meta: { roles: ['reviewer', 'admin'] } },
         { path: 'done', component: () => import('@/views/products/DoneList.vue') },
         { path: 'infringe', component: () => import('@/views/products/InfringeList.vue') },
-        { path: 'bookmarklet-import', component: () => import('@/views/BookmarkletImport.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
