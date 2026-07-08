@@ -12,7 +12,7 @@
 
       <div v-if="selected.length" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
         <span style="color:#606266">已选 {{ selected.length }} 项</span>
-        <el-button size="small" type="danger" @click="batchDelete">批量删除</el-button>
+        <el-button v-if="auth.user?.role==='reviewer'||auth.user?.role==='admin'" size="small" type="danger" @click="batchDelete">批量删除</el-button>
       </div>
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
@@ -42,7 +42,7 @@
         <el-table-column label="操作" width="120">
           <template #default="{row}">
             <el-button size="small" @click="router.push(`/products/${row.id}`)">详情</el-button>
-            <el-button size="small" type="danger" @click="del(row)">删除</el-button>
+            <el-button v-if="auth.user?.role==='reviewer'||auth.user?.role==='admin'" size="small" type="danger" @click="del(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
