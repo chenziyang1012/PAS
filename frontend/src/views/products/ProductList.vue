@@ -67,7 +67,7 @@
             <el-button size="small" @click="router.push(`/products/${row.id}`)">详情</el-button>
             <template v-if="auth.user?.role!=='reviewer'">
               <el-button v-if="['draft','rejected'].includes(row.status)" size="small" type="primary" @click="router.push(`/products/${row.id}/edit`)">编辑</el-button>
-              <el-button v-if="['draft','rejected'].includes(row.status)" size="small" type="success" @click="submitReview(row)">提交</el-button>
+              <el-button v-if="row.status==='draft'" size="small" type="success" @click="submitReview(row)">提交</el-button>
               <el-button v-if="row.status==='draft'" size="small" type="danger" @click="del(row)">删除</el-button>
             </template>
           </template>
@@ -194,7 +194,7 @@ async function batchDelete() {
 }
 
 async function batchSubmit() {
-  const draftRows = selected.value.filter((r: any) => ['draft', 'rejected'].includes(r.status))
+  const draftRows = selected.value.filter((r: any) => r.status === 'draft')
   if (!draftRows.length) return ElMessage.warning('没有可提交的产品')
   await ElMessageBox.confirm(`确认提交 ${draftRows.length} 个产品审核？`)
   let ok = 0, fail = 0

@@ -349,7 +349,9 @@ def submit_review(product_id: int, db: Session = Depends(get_db), current_user: 
         raise HTTPException(status_code=404, detail="产品不存在")
     if product.creator_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="无权提交")
-    if product.status not in ("draft", "rejected"):
+    if product.status == "rejected":
+        raise HTTPException(status_code=400, detail="已驳回的产品不能再次提交审核")
+    if product.status != "draft":
         raise HTTPException(status_code=400, detail="当前状态不可提交")
     if not product.product_name:
         raise HTTPException(status_code=400, detail="产品名称必填")

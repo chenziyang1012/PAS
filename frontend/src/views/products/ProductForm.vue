@@ -40,7 +40,7 @@
       </el-form-item>
       <el-form-item>
         <el-button @click="save('draft')" :loading="saving">保存草稿</el-button>
-        <el-button type="primary" @click="save('submit')" :loading="saving">提交审核</el-button>
+        <el-button v-if="productStatus!=='rejected'" type="primary" @click="save('submit')" :loading="saving">提交审核</el-button>
         <el-button @click="router.back()">取消</el-button>
       </el-form-item>
     </el-form>
@@ -58,6 +58,7 @@ const route = useRoute()
 const router = useRouter()
 const saving = ref(false)
 const isEdit = computed(() => !!route.params.id)
+const productStatus = ref('')
 const form = reactive({ product_name: '', product_link: '', category: '', description: '', main_image: '' })
 const images = ref<string[]>([])
 const fileList = ref<any[]>([])
@@ -67,6 +68,7 @@ onMounted(async () => {
     const res: any = await productApi.get(Number(route.params.id))
     const p = res.data
     Object.assign(form, { product_name: p.product_name, product_link: p.product_link || '', category: p.category || '', description: p.description || '', main_image: p.main_image || '' })
+    productStatus.value = p.status
     images.value = p.images.map((img: any) => img.url)
     fileList.value = p.images.map((img: any) => ({ name: img.url, url: img.url }))
   }
