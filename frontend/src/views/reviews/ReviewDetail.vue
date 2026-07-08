@@ -24,8 +24,19 @@
       </div>
     </template>
 
-    <el-dialog v-model="rejectVisible" title="驳回原因" width="400px">
-      <el-input v-model="rejectReason" type="textarea" :rows="4" placeholder="请填写驳回原因（必填）" />
+    <el-dialog v-model="rejectVisible" title="驳回原因" width="420px">
+      <el-form label-width="80px">
+        <el-form-item label="驳回类型">
+          <el-radio-group v-model="rejectType">
+            <el-radio-button value="done">已做产品</el-radio-button>
+            <el-radio-button value="infringe">侵权产品</el-radio-button>
+            <el-radio-button value="other">其他</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="驳回原因">
+          <el-input v-model="rejectReason" type="textarea" :rows="4" :placeholder="rejectType==='other'?'请填写驳回原因（必填）':'选填'" />
+        </el-form-item>
+      </el-form>
       <template #footer>
         <el-button @click="rejectVisible=false">取消</el-button>
         <el-button type="danger" :loading="saving" @click="doReject">确认驳回</el-button>
@@ -47,6 +58,7 @@ const loading = ref(false)
 const saving = ref(false)
 const rejectVisible = ref(false)
 const rejectReason = ref('')
+const rejectType = ref<'done'|'infringe'|'other'>('done')
 
 onMounted(async () => {
   loading.value = true
@@ -65,13 +77,13 @@ async function approve() {
   } catch (e: any) { ElMessage.error(e) } finally { saving.value = false }
 }
 
-function openReject() { rejectReason.value = ''; rejectVisible.value = true }
+function openReject() { rejectReason.value = ''; rejectType.value = 'done'; rejectVisible.value = true }
 
 async function doReject() {
-  if (!rejectReason.value.trim()) return ElMessage.warning('驳回原因必填')
+  if (rejectType.value === 'other' && !rejectReason.value.trim()) return ElMessage.warning('选择其他时驳回原因必填')
   saving.value = true
   try {
-    await reviewApi.reject(Number(route.params.id), rejectReason.value)
+    await reviewApi.reject(Number(route.params.id), rejectReason.value, rejectType.value)
     ElMessage.success('已驳回')
     router.push('/reviews')
   } catch (e: any) { ElMessage.error(e) } finally { saving.value = false; rejectVisible.value = false }

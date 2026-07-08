@@ -96,7 +96,7 @@ class ProductOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class ReviewCreate(BaseModel):
-    reject_type: Literal["infringe", "done"] | None = None
+    reject_type: Literal["infringe", "done", "other"] | None = None
     reason: str | None = None
 
 class ReviewOut(BaseModel):

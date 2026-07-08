@@ -45,11 +45,13 @@ def approve(product_id: int, db: Session = Depends(get_db), current_user: User =
 def reject(product_id: int, body: ReviewCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles("reviewer", "admin"))):
     if not body.reject_type:
         raise HTTPException(status_code=400, detail="请选择驳回类型")
+    if body.reject_type == "other" and not (body.reason or "").strip():
+        raise HTTPException(status_code=400, detail="选择其他时驳回原因必填")
     product = db.query(Product).filter(Product.id == product_id).with_for_update().first()
     if not product or product.status != "pending_review":
         raise HTTPException(status_code=400, detail="产品不存在或状态不正确")
     product.status = "rejected"
-    product.special_tag = body.reject_type  # schema already enforces "infringe" | "done"
+    product.special_tag = body.reject_type if body.reject_type != "other" else None
     db.add(Review(
         product_id=product.id,
         reviewer_id=current_user.id,
