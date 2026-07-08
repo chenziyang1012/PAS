@@ -27,6 +27,7 @@
         <el-button v-if="auth.user?.role!=='reviewer'" size="small" type="success" @click="batchMarkComplete">批量标记完成</el-button>
         <el-button v-if="auth.user?.role!=='reviewer'" size="small" type="danger" @click="batchDelete">批量删除</el-button>
         <el-button v-if="auth.user?.role!=='reviewer'" size="small" @click="batchSubmit">批量提交审核</el-button>
+        <el-button size="small" type="primary" plain @click="exportExcel">导出Excel</el-button>
       </div>
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
@@ -99,6 +100,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import * as XLSX from 'xlsx'
 import { productApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -202,6 +204,19 @@ async function batchSubmit() {
   if (ok) ElMessage.success(`成功提交 ${ok} 个`)
   if (fail) ElMessage.warning(`${fail} 个提交失败（缺少图片等）`)
   load()
+}
+
+function exportExcel() {
+  const rows = selected.value.map((r: any) => ({
+    '产品名称': r.product_name,
+    '产品链接': r.product_link || '',
+    '厂家名称': r.manufacturer || '',
+    '状态': statusLabel[r.status] || r.status,
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '产品列表')
+  XLSX.writeFile(wb, `产品导出_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`)
 }
 
 function handleTxtChange(file: any) {
