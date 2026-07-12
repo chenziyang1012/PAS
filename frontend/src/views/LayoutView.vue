@@ -6,6 +6,7 @@
         <el-menu-item index="/dashboard"><el-icon><House /></el-icon>工作台</el-menu-item>
         <el-menu-item index="/products"><el-icon><Goods /></el-icon>产品列表</el-menu-item>
         <el-menu-item v-if="auth.user?.role !== 'selector'" index="/reviews"><el-icon><Check /></el-icon>待审核</el-menu-item>
+        <el-menu-item v-if="auth.user?.role !== 'reviewer'" index="/todo"><el-icon><List /></el-icon>待做列表</el-menu-item>
         <el-menu-item index="/done"><el-icon><Finished /></el-icon>已做产品</el-menu-item>
         <el-menu-item index="/infringe"><el-icon><Warning /></el-icon>侵权产品</el-menu-item>
         <el-menu-item v-if="auth.user?.role === 'admin'" index="/users"><el-icon><User /></el-icon>用户管理</el-menu-item>
@@ -25,7 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { House, Goods, Check, User, Finished, Warning, Setting } from '@element-plus/icons-vue'
+import { House, Goods, Check, User, Finished, Warning, Setting, List } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()

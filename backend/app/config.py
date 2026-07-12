@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     COOKIE_1688: str = ""
     PROXY_URL: str = ""  # HTTP proxy for scraping, e.g. http://user:pass@host:port
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://ai.t8star.org/v1"
 
     class Config:
         env_file = ".env"

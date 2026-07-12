@@ -6,7 +6,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.routers import auth, users, products, reviews, upload
+from app.routers import auth, users, products, reviews, upload, todo
 
 Base.metadata.create_all(bind=engine)
 
@@ -49,3 +49,4 @@ app.include_router(users.router)
 app.include_router(products.router)
 app.include_router(reviews.router)
 app.include_router(upload.router)
+app.include_router(todo.router)

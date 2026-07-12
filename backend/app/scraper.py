@@ -240,3 +240,94 @@ def _json_ld_brand(soup) -> str | None:
         except Exception:
             pass
     return None
+
+
+def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
+    """Scrape ALL product images from a 1688 page (main images + detail images)."""
+    if "1688.com" not in url:
+        return {"error": "仅支持1688链接"}
+
+    from app.config import settings
+
+    cookie_str = cookie_override or settings.COOKIE_1688
+    if not cookie_str:
+        return {"error": "未配置1688 Cookie"}
+
+    if not _CFFI_OK:
+        return {"error": "curl_cffi 未安装"}
+
+    try:
+        proxy_url = settings.PROXY_URL or None
+        resp = cffi_requests.get(
+            url,
+            impersonate="chrome120",
+            timeout=15,
+            headers={
+                **HEADERS,
+                "Referer": "https://www.1688.com/",
+                "Cookie": cookie_str,
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-site",
+            },
+            proxies={"http": proxy_url, "https": proxy_url} if proxy_url else None,
+        )
+        resp.raise_for_status()
+        html = resp.text
+
+        if "punish-component" in html or "g.alicdn.com/sd/punish" in html:
+            return {"error": "1688 触发了安全验证，请稍后重试或更换Cookie"}
+
+        urls = set()
+
+        # 1. Extract from JSON patterns
+        img_patterns = [
+            r'"imageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"imgUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"originalImageURI"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"searchImageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"picUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"coverImage"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"image"\s*:\s*"((?:https?:)?//[^"]*alicdn\.com[^"]*)"',
+        ]
+        for pattern in img_patterns:
+            for m in re.finditer(pattern, html):
+                u = m.group(1)
+                if u.startswith("//"):
+                    u = "https:" + u
+                if "alicdn.com" in u and not u.endswith((".gif", ".ico", ".svg")):
+                    urls.add(u)
+
+        # 2. Extract all alicdn URLs from page
+        all_matches = re.findall(r'((?:https?:)?//[^"\'\s]*?alicdn\.com[^"\'>\s]*?\.(?:jpg|jpeg|png|webp))', html, re.IGNORECASE)
+        for u in all_matches:
+            if u.startswith("//"):
+                u = "https:" + u
+            if not u.endswith((".gif", ".ico", ".svg")):
+                urls.add(u)
+
+        # 3. Extract from img tags
+        soup = BeautifulSoup(html, "html.parser")
+        for img in soup.find_all("img"):
+            src = img.get("src") or img.get("data-src") or img.get("data-lazy-src") or ""
+            if "alicdn.com" in src and not src.endswith((".gif", ".ico", ".svg")):
+                if src.startswith("//"):
+                    src = "https:" + src
+                urls.add(src)
+
+        # Filter small icons / thumbnails — keep images with size hints > 100px
+        filtered = []
+        for u in urls:
+            # Skip very small thumbnails (common pattern: _50x50.jpg)
+            if re.search(r'_\d{1,2}x\d{1,2}\.', u):
+                continue
+            # Clean up size suffixes to get original quality
+            clean = re.sub(r'\.(\d+x\d+)\.(jpg|jpeg|png|webp)', r'.\2', u)
+            filtered.append(clean)
+
+        # Deduplicate after cleaning
+        filtered = list(dict.fromkeys(filtered))
+
+        return {"urls": filtered}
+    except Exception as e:
+        return {"error": str(e)}

@@ -72,3 +72,27 @@ export const uploadApi = {
     return http.post('/api/upload/image', form)
   },
 }
+
+export const todoApi = {
+  list: (params?: object) => http.get('/api/todo', { params }),
+  bulkCreate: (urls: string[]) => http.post('/api/todo/bulk', { urls }),
+  complete: (id: number) => http.post(`/api/todo/${id}/complete`),
+  batchComplete: (ids: number[]) => http.post('/api/todo/batch-complete', { ids }),
+  // 素材
+  getMaterials: (id: number) => http.get(`/api/todo/${id}/materials`),
+  addMaterial: (id: number, data: object) => http.post(`/api/todo/${id}/materials`, data),
+  deleteMaterial: (id: number, mid: number) => http.delete(`/api/todo/${id}/materials/${mid}`),
+  batchUpdateMaterials: (id: number, items: object[]) => http.put(`/api/todo/${id}/materials/batch`, { items }),
+  scrapeMaterials: (id: number) => http.post(`/api/todo/${id}/scrape-materials`),
+  // 生成图
+  getGenerated: (id: number) => http.get(`/api/todo/${id}/generated`),
+  generate: (id: number, template_id: number) => http.post(`/api/todo/${id}/generate`, { template_id }),
+  // 提示词模板
+  listTemplates: () => http.get('/api/todo/templates'),
+  createTemplate: (data: object) => http.post('/api/todo/templates', data),
+  updateTemplate: (id: number, data: object) => http.put(`/api/todo/templates/${id}`, data),
+  deleteTemplate: (id: number) => http.delete(`/api/todo/templates/${id}`),
+  // OpenAI 配置
+  getOpenaiSettings: () => http.get('/api/todo/settings/openai'),
+  setOpenaiSettings: (data: object) => http.put('/api/todo/settings/openai', data),
+}

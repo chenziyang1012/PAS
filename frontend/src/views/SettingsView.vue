@@ -68,6 +68,25 @@
 
       <template v-if="auth.user?.role === 'admin'">
         <el-divider />
+        <h3 style="margin-bottom:16px">AI 生图设置（管理员）</h3>
+        <el-alert type="info" :closable="false" style="margin-bottom:16px">
+          <p>配置用于生成产品图片的 OpenAI 兼容接口。API Key 和接口地址将用于待做列表的生图功能。</p>
+        </el-alert>
+        <el-form label-width="100px" style="max-width:500px">
+          <el-form-item label="API 地址">
+            <el-input v-model="openaiBaseUrl" placeholder="https://api.openai.com/v1" />
+          </el-form-item>
+          <el-form-item label="API Key">
+            <el-input v-model="openaiApiKey" placeholder="sk-..." show-password />
+          </el-form-item>
+        </el-form>
+        <div style="margin-top:4px;margin-bottom:16px;margin-left:100px">
+          <el-button type="primary" :loading="savingOpenai" @click="saveOpenaiSettings">保存设置</el-button>
+        </div>
+      </template>
+
+      <template v-if="auth.user?.role === 'admin'">
+        <el-divider />
         <h3 style="margin-bottom:16px">全局默认 Cookie（管理员）</h3>
         <el-alert type="warning" :closable="false" style="margin-bottom:16px">
           <p>当用户未配置自己的 Cookie 时，系统将使用此全局 Cookie 作为兜底。建议每个用户配置自己的 Cookie。</p>
@@ -116,7 +135,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { productApi } from '@/api'
+import { productApi, todoApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -138,6 +157,10 @@ const savingProxy = ref(false)
 const deletingProxy = ref(false)
 const testingProxy = ref(false)
 const proxyTestResult = ref<{ ok: boolean; msg: string } | null>(null)
+
+const openaiBaseUrl = ref('')
+const openaiApiKey = ref('')
+const savingOpenai = ref(false)
 
 const bookmarkletTag = ref('')
 
@@ -186,6 +209,10 @@ async function loadStatus() {
       const res: any = await productApi.getProxy()
       proxyConfigured.value = res.data.configured
       if (res.data.proxy_url) proxyValue.value = res.data.proxy_url
+    } catch {}
+    try {
+      const res: any = await todoApi.getOpenaiSettings()
+      if (res.data.base_url) openaiBaseUrl.value = res.data.base_url
     } catch {}
   }
 }
@@ -275,6 +302,19 @@ async function testProxy() {
     proxyTestResult.value = { ok: false, msg: e || '测试失败' }
   } finally {
     testingProxy.value = false
+  }
+}
+
+async function saveOpenaiSettings() {
+  savingOpenai.value = true
+  try {
+    await todoApi.setOpenaiSettings({ api_key: openaiApiKey.value.trim(), base_url: openaiBaseUrl.value.trim() })
+    ElMessage.success('AI 设置已保存')
+    if (openaiApiKey.value.trim()) openaiApiKey.value = ''
+  } catch (e: any) {
+    ElMessage.error(e || '保存失败')
+  } finally {
+    savingOpenai.value = false
   }
 }
 

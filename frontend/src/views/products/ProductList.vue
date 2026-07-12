@@ -10,10 +10,6 @@
             <el-option label="已通过" value="approved" />
             <el-option label="已驳回" value="rejected" />
           </el-select>
-          <el-select v-model="query.is_completed" placeholder="是否完成" clearable style="width:110px" @change="load">
-            <el-option label="已完成" :value="true" />
-            <el-option label="未完成" :value="false" />
-          </el-select>
           <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期" style="width:220px" @change="onDateChange" value-format="YYYY-MM-DD" />
         </div>
         <div style="display:flex;gap:8px">
@@ -24,7 +20,6 @@
 
       <div v-if="selected.length" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
         <span style="color:#606266">已选 {{ selected.length }} 项</span>
-        <el-button v-if="auth.user?.role!=='reviewer'" size="small" type="success" @click="batchMarkComplete">批量标记完成</el-button>
         <el-button v-if="auth.user?.role!=='reviewer'" size="small" type="danger" @click="batchDelete">批量删除</el-button>
         <el-button v-if="auth.user?.role!=='reviewer'" size="small" @click="batchSubmit">批量提交审核</el-button>
         <el-button size="small" type="primary" plain @click="exportExcel">导出Excel</el-button>
@@ -49,15 +44,6 @@
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{row}"><el-tag :type="statusType[row.status]" size="small">{{ statusLabel[row.status] }}</el-tag></template>
-        </el-table-column>
-        <el-table-column label="是否完成" width="95">
-          <template #default="{row}">
-            <el-tag v-if="row.is_completed" type="success" size="small">已完成</el-tag>
-            <span v-else-if="auth.user?.role!=='reviewer'" @click="toggleComplete(row)">
-              <el-button size="small" :disabled="row.status !== 'approved'">标记完成</el-button>
-            </span>
-            <el-tag v-else type="info" size="small">未完成</el-tag>
-          </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="150">
           <template #default="{row}">{{ row.created_at?.slice(0,19).replace('T',' ') }}</template>
@@ -114,7 +100,6 @@ const pageSize = ref(20)
 const dateRange = ref<[string, string] | null>(null)
 const query = reactive({
   page: 1, keyword: '', status: '',
-  is_completed: undefined as boolean | undefined,
   date_from: undefined as string | undefined,
   date_to: undefined as string | undefined,
 })
@@ -158,35 +143,6 @@ async function del(row: any) {
   load()
 }
 
-async function toggleComplete(row: any) {
-  if (row.status !== 'approved') {
-    ElMessageBox.alert('该产品未通过审核，无法标记完成', '提示', { type: 'warning' })
-    return
-  }
-  try {
-    await productApi.toggleComplete(row.id)
-    row.is_completed = true
-    row.special_tag = 'done'
-    ElMessage.success('已标记完成')
-  } catch (e: any) {
-    ElMessage.error(e || '操作失败')
-  }
-}
-
-async function batchMarkComplete() {
-  const ids = selected.value.map((r: any) => r.id)
-  const nonApproved = selected.value.filter((r: any) => r.status !== 'approved')
-  if (nonApproved.length) {
-    return ElMessageBox.alert(`有 ${nonApproved.length} 个产品未通过审核，无法批量标记完成`, '提示', { type: 'warning' })
-  }
-  try {
-    await productApi.bulkComplete(ids)
-    selected.value.forEach((r: any) => { r.is_completed = true; r.special_tag = 'done' })
-    ElMessage.success('批量标记完成成功')
-  } catch (e: any) {
-    ElMessage.error(e || '操作失败')
-  }
-}
 
 async function batchDelete() {
   await ElMessageBox.confirm(`确认删除 ${selected.value.length} 个产品？`, '批量删除', { type: 'warning' })
