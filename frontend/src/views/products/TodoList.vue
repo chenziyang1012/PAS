@@ -41,7 +41,7 @@
         <el-table-column label="厂家名称" width="110">
           <template #default="{row}">{{ row.manufacturer || '-' }}</template>
         </el-table-column>
-        <el-table-column label="选品员" width="100">
+        <el-table-column v-if="auth.user?.role !== 'selector'" label="选品员" width="100">
           <template #default="{row}">{{ row.creator?.username }}</template>
         </el-table-column>
         <el-table-column prop="updated_at" label="通过时间" width="150">
@@ -197,8 +197,8 @@
 
     <!-- 生成图预览(轮播+滚轮缩放) -->
     <el-dialog v-model="genPreviewVisible" :show-header="false" width="fit-content" :close-on-click-modal="true" append-to-body center @close="previewScale=1">
-      <div style="position:relative;display:inline-block;overflow:hidden" @wheel.prevent="onPreviewWheel">
-        <img :src="genPreviewImages[genPreviewIndex]" style="max-width:90vw;max-height:85vh;display:block;transition:transform 0.1s;transform-origin:center" :style="{transform:`scale(${previewScale})`}" />
+      <div style="width:min(90vw,900px);height:min(85vh,750px);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;position:relative;user-select:none" @wheel.prevent.stop="onPreviewWheel">
+        <img :src="genPreviewImages[genPreviewIndex]" style="max-width:100%;max-height:100%;display:block;transition:transform 0.1s;transform-origin:center" :style="{transform:`scale(${previewScale})`}" draggable="false" />
         <div v-if="genPreviewImages.length > 1" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px">
           <el-button circle size="small" @click="genPreviewIndex = (genPreviewIndex - 1 + genPreviewImages.length) % genPreviewImages.length">‹</el-button>
           <span style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:32px;font-size:13px">{{ genPreviewIndex + 1 }} / {{ genPreviewImages.length }}</span>
