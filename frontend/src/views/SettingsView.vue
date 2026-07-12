@@ -43,6 +43,31 @@
 
       <template v-if="auth.user?.role === 'admin'">
         <el-divider />
+        <h3 style="margin-bottom:16px">代理设置（管理员）</h3>
+        <el-alert type="info" :closable="false" style="margin-bottom:16px">
+          <p>配置 HTTP 代理用于爬取 1688 等网站。阿里云服务器 IP 可能被 1688 封禁，通过代理可以绕过限制。</p>
+          <p style="margin-top:4px">格式示例：<code>http://用户名:密码@代理地址:端口</code> 或 <code>http://代理地址:端口</code></p>
+        </el-alert>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span>代理状态：</span>
+          <el-tag v-if="proxyConfigured" type="success">已配置</el-tag>
+          <el-tag v-else type="info">未配置</el-tag>
+        </div>
+        <el-input v-model="proxyValue" placeholder="http://user:pass@host:port" style="max-width:500px" />
+        <div style="margin-top:12px">
+          <el-button type="primary" :loading="savingProxy" @click="saveProxy">保存代理</el-button>
+          <el-button v-if="proxyConfigured" type="danger" :loading="deletingProxy" @click="deleteProxy">删除代理</el-button>
+          <el-button @click="testProxy" :loading="testingProxy">测试代理</el-button>
+        </div>
+        <div v-if="proxyTestResult" style="margin-top:12px">
+          <el-alert :type="proxyTestResult.ok ? 'success' : 'error'" :closable="false">
+            {{ proxyTestResult.msg }}
+          </el-alert>
+        </div>
+      </template>
+
+      <template v-if="auth.user?.role === 'admin'">
+        <el-divider />
         <h3 style="margin-bottom:16px">全局默认 Cookie（管理员）</h3>
         <el-alert type="warning" :closable="false" style="margin-bottom:16px">
           <p>当用户未配置自己的 Cookie 时，系统将使用此全局 Cookie 作为兜底。建议每个用户配置自己的 Cookie。</p>
@@ -107,6 +132,13 @@ const globalCookieValue = ref('')
 const globalConfigured = ref(false)
 const savingGlobal = ref(false)
 
+const proxyValue = ref('')
+const proxyConfigured = ref(false)
+const savingProxy = ref(false)
+const deletingProxy = ref(false)
+const testingProxy = ref(false)
+const proxyTestResult = ref<{ ok: boolean; msg: string } | null>(null)
+
 const bookmarkletTag = ref('')
 
 function updateBookmarklet() {}
@@ -150,6 +182,11 @@ async function loadStatus() {
       const res: any = await productApi.getCookie1688()
       globalConfigured.value = res.data.configured
     } catch {}
+    try {
+      const res: any = await productApi.getProxy()
+      proxyConfigured.value = res.data.configured
+      if (res.data.proxy_url) proxyValue.value = res.data.proxy_url
+    } catch {}
   }
 }
 
@@ -191,6 +228,53 @@ async function testMyCookie() {
     ElMessage.error(e || '测试失败')
   } finally {
     testingMy.value = false
+  }
+}
+
+async function saveProxy() {
+  if (!proxyValue.value.trim()) return ElMessage.warning('请输入代理地址')
+  savingProxy.value = true
+  try {
+    await productApi.setProxy(proxyValue.value.trim())
+    ElMessage.success('代理已保存')
+    proxyConfigured.value = true
+  } catch (e: any) {
+    ElMessage.error(e || '保存失败')
+  } finally {
+    savingProxy.value = false
+  }
+}
+
+async function deleteProxy() {
+  deletingProxy.value = true
+  try {
+    await productApi.deleteProxy()
+    ElMessage.success('代理已删除')
+    proxyConfigured.value = false
+    proxyValue.value = ''
+  } catch (e: any) {
+    ElMessage.error(e || '删除失败')
+  } finally {
+    deletingProxy.value = false
+  }
+}
+
+async function testProxy() {
+  testingProxy.value = true
+  proxyTestResult.value = null
+  try {
+    const res: any = await productApi.scrape('https://detail.1688.com/offer/622463490498.html')
+    if (res.data?.error) {
+      proxyTestResult.value = { ok: false, msg: `爬取失败: ${res.data.error}` }
+    } else if (res.data?.title) {
+      proxyTestResult.value = { ok: true, msg: `代理正常，获取到: ${res.data.title}` }
+    } else {
+      proxyTestResult.value = { ok: false, msg: '未获取到数据，代理可能不可用' }
+    }
+  } catch (e: any) {
+    proxyTestResult.value = { ok: false, msg: e || '测试失败' }
+  } finally {
+    testingProxy.value = false
   }
 }
 

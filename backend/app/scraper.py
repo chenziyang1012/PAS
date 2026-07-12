@@ -38,8 +38,13 @@ def scrape_product(url: str, cookie_1688: str | None = None) -> dict:
 
 
 def _scrape_generic(url: str) -> dict:
+    from app.config import settings
+    proxy_url = settings.PROXY_URL or None
     try:
-        with httpx.Client(timeout=10, follow_redirects=True, headers=HEADERS) as client:
+        client_kwargs = dict(timeout=10, follow_redirects=True, headers=HEADERS)
+        if proxy_url:
+            client_kwargs["proxy"] = proxy_url
+        with httpx.Client(**client_kwargs) as client:
             resp = client.get(url)
             resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -91,6 +96,7 @@ def _scrape_1688(url: str, cookie_override: str | None = None) -> dict:
         }
 
     try:
+        proxy_url = settings.PROXY_URL or None
         resp = cffi_requests.get(
             url,
             impersonate="chrome120",
@@ -103,6 +109,7 @@ def _scrape_1688(url: str, cookie_override: str | None = None) -> dict:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "same-site",
             },
+            proxies={"http": proxy_url, "https": proxy_url} if proxy_url else None,
         )
         resp.raise_for_status()
         html = resp.text

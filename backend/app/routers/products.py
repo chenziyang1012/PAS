@@ -8,7 +8,7 @@ from app.models import User, Product, ProductImage
 from app.schemas import (
     Resp, ProductCreate, ProductUpdate, ProductOut, ProductDetailOut,
     BulkCreateRequest, BulkDeleteRequest, BulkCompleteRequest, ScrapeRequest,
-    CookieSettingRequest,
+    CookieSettingRequest, ProxySettingRequest,
 )
 from app.auth import get_current_user, require_roles
 from app.scraper import scrape_product
@@ -281,6 +281,57 @@ def delete_my_cookie(db: Session = Depends(get_db), current_user: User = Depends
     current_user.cookie_1688 = None
     db.commit()
     return Resp(message="Cookie 已删除")
+
+
+@router.get("/settings/proxy")
+def get_proxy(current_user: User = Depends(require_roles("admin"))):
+    from app.config import settings
+    proxy = settings.PROXY_URL
+    return Resp(data={"proxy_url": proxy, "configured": bool(proxy)})
+
+
+@router.put("/settings/proxy")
+def set_proxy(body: ProxySettingRequest, current_user: User = Depends(require_roles("admin"))):
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
+    lines = []
+    found = False
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("PROXY_URL="):
+                    found = True
+                    lines.append(f"PROXY_URL={body.proxy_url}\n")
+                else:
+                    lines.append(line)
+    if not found:
+        lines.append(f"PROXY_URL={body.proxy_url}\n")
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    from app.config import settings
+    settings.PROXY_URL = body.proxy_url
+
+    return Resp(message="代理已保存")
+
+
+@router.delete("/settings/proxy")
+def delete_proxy(current_user: User = Depends(require_roles("admin"))):
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.startswith("PROXY_URL="):
+                    lines.append(line)
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+    from app.config import settings
+    settings.PROXY_URL = ""
+
+    return Resp(message="代理已删除")
 
 @router.get("/{product_id}")
 def get_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

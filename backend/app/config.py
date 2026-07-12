@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     UPLOAD_DIR: str = "uploads"
     COOKIE_1688: str = ""
+    PROXY_URL: str = ""  # HTTP proxy for scraping, e.g. http://user:pass@host:port
 
     class Config:
         env_file = ".env"

@@ -120,3 +120,6 @@ class Resp(BaseModel):
 
 class CookieSettingRequest(BaseModel):
     cookie_1688: str
+
+class ProxySettingRequest(BaseModel):
+    proxy_url: str

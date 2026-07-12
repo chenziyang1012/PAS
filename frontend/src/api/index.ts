@@ -53,6 +53,9 @@ export const productApi = {
   getMyCookie1688: () => http.get('/api/products/my-cookie-1688'),
   setMyCookie1688: (cookie_1688: string) => http.put('/api/products/my-cookie-1688', { cookie_1688 }),
   deleteMyCookie1688: () => http.delete('/api/products/my-cookie-1688'),
+  getProxy: () => http.get('/api/products/settings/proxy'),
+  setProxy: (proxy_url: string) => http.put('/api/products/settings/proxy', { proxy_url }),
+  deleteProxy: () => http.delete('/api/products/settings/proxy'),
 }
 
 export const reviewApi = {
