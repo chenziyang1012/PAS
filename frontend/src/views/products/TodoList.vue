@@ -88,6 +88,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:8px;max-height:200px;overflow-y:auto;padding:8px;background:#f5f7fa;border-radius:4px">
             <div v-for="(img, i) in scrapedImages" :key="i"
                  draggable="true" @dragstart="onDragStart($event, img.url)"
+                 @click="previewUrl(img.url)"
                  style="width:80px;height:80px;cursor:grab;border:2px solid transparent;border-radius:4px;overflow:hidden"
                  :style="{ borderColor: isUsed(img.url) ? '#67C23A' : 'transparent' }">
               <img :src="img.url" style="width:100%;height:100%;object-fit:cover" />
@@ -103,11 +104,13 @@
             <div style="display:flex;gap:8px">
               <div v-for="idx in 2" :key="'main'+idx"
                    @dragover.prevent @drop="onDrop($event, 'main', idx-1)"
-                   style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative"
+                   style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
                    :style="{ borderColor: slots.main[idx-1] ? '#409EFF' : '#dcdfe6' }">
-                <img v-if="slots.main[idx-1]" :src="slots.main[idx-1]" style="width:100%;height:100%;object-fit:cover;border-radius:2px" />
-                <span v-else style="color:#c0c4cc;font-size:12px">拖入</span>
-                <div v-if="slots.main[idx-1]" @click="clearSlot('main', idx-1)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
+                <img v-if="slots.main[idx-1]" :src="slots.main[idx-1]" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(slots.main[idx-1])" />
+                <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'main', idx-1)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                  <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
+                </el-upload>
+                <div v-if="slots.main[idx-1]" @click.stop="clearSlot('main', idx-1)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
               </div>
             </div>
           </div>
@@ -116,11 +119,13 @@
           <div>
             <div style="font-size:13px;font-weight:bold;margin-bottom:8px">场景图（1张）</div>
             <div @dragover.prevent @drop="onDrop($event, 'scene', 0)"
-                 style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative"
+                 style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
                  :style="{ borderColor: slots.scene[0] ? '#E6A23C' : '#dcdfe6' }">
-              <img v-if="slots.scene[0]" :src="slots.scene[0]" style="width:100%;height:100%;object-fit:cover;border-radius:2px" />
-              <span v-else style="color:#c0c4cc;font-size:12px">拖入</span>
-              <div v-if="slots.scene[0]" @click="clearSlot('scene', 0)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
+              <img v-if="slots.scene[0]" :src="slots.scene[0]" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(slots.scene[0])" />
+              <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'scene', 0)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
+              </el-upload>
+              <div v-if="slots.scene[0]" @click.stop="clearSlot('scene', 0)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
             </div>
           </div>
 
@@ -133,11 +138,13 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <div v-for="(v, idx) in slots.variant" :key="'var'+idx"
                    @dragover.prevent @drop="onDrop($event, 'variant', idx)"
-                   style="width:80px;height:80px;border:2px dashed #dcdfe6;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative"
+                   style="width:80px;height:80px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
                    :style="{ borderColor: v ? '#67C23A' : '#dcdfe6' }">
-                <img v-if="v" :src="v" style="width:100%;height:100%;object-fit:cover;border-radius:2px" />
-                <span v-else style="color:#c0c4cc;font-size:11px">拖入</span>
-                <div v-if="v" @click="clearSlot('variant', idx)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px">×</div>
+                <img v-if="v" :src="v" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(v)" />
+                <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'variant', idx)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                  <el-icon style="font-size:22px;color:#c0c4cc"><Plus /></el-icon>
+                </el-upload>
+                <div v-if="v" @click.stop="clearSlot('variant', idx)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px">×</div>
               </div>
             </div>
           </div>
@@ -231,8 +238,9 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
-import { todoApi } from '@/api'
+import { todoApi, uploadApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
 
@@ -353,6 +361,26 @@ async function doBulkImport() {
     load()
   } catch (e: any) { ElMessage.error(e || '导入失败') }
   finally { bulkLoading.value = false }
+}
+
+function previewUrl(url: string) {
+  genPreviewImages.value = [url]
+  genPreviewIndex.value = 0
+  genPreviewVisible.value = true
+}
+
+async function onSlotUpload(file: any, type: 'main' | 'scene' | 'variant', idx: number) {
+  const f: File = file.raw
+  if (!f) return
+  try {
+    const res: any = await uploadApi.image(f)
+    const url = res.data.url
+    if (type === 'main') slots.main[idx] = url
+    else if (type === 'scene') slots.scene[idx] = url
+    else slots.variant[idx] = url
+  } catch (e: any) {
+    ElMessage.error(e || '上传失败')
+  }
 }
 
 // 生图弹窗
