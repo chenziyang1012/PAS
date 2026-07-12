@@ -78,9 +78,12 @@
 
     <el-dialog v-model="bulkImportVisible" title="批量导入产品链接" width="500px">
       <p style="color:#606266;font-size:13px;margin-bottom:8px">每行输入一个产品链接，系统将自动爬取标题和主图</p>
-      <div style="margin-bottom:8px">
+      <div style="margin-bottom:8px;display:flex;gap:8px">
         <el-upload :show-file-list="false" accept=".txt" :auto-upload="false" @change="handleTxtChange">
           <el-button size="small" icon="Upload">上传 .txt 文件</el-button>
+        </el-upload>
+        <el-upload :show-file-list="false" accept=".xlsx,.xls" :auto-upload="false" @change="handleExcelChange">
+          <el-button size="small" icon="Upload">上传 Excel 文件</el-button>
         </el-upload>
       </div>
       <el-input v-model="bulkUrls" type="textarea" :rows="8" placeholder="https://..." />
@@ -229,6 +232,31 @@ function handleTxtChange(file: any) {
     bulkUrls.value = bulkUrls.value ? bulkUrls.value + '\n' + extra : extra
   }
   reader.readAsText(f)
+}
+
+function handleExcelChange(file: any) {
+  const f: File = file.raw
+  if (!f) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target?.result as ArrayBuffer)
+    const wb = XLSX.read(data, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+    const urls: string[] = []
+    for (const row of rows) {
+      for (const cell of row) {
+        const val = String(cell || '').trim()
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          urls.push(val)
+        }
+      }
+    }
+    if (!urls.length) return ElMessage.warning('Excel 中未找到链接')
+    const extra = urls.join('\n')
+    bulkUrls.value = bulkUrls.value ? bulkUrls.value + '\n' + extra : extra
+  }
+  reader.readAsArrayBuffer(f)
 }
 
 async function doBulkImport() {
