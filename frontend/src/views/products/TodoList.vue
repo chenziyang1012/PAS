@@ -25,6 +25,9 @@
             <div v-else-if="row.generated_images?.no_logo" style="display:inline-block;cursor:pointer" @click="openGenPreview(row)">
               <img :src="row.generated_images.no_logo.url" style="width:56px;height:56px;object-fit:cover;border-radius:4px" />
             </div>
+            <div v-else-if="row.generated_images?.failed" style="width:56px;height:56px;background:#fef0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#F56C6C;font-size:10px;text-align:center;padding:2px">
+              生成失败
+            </div>
             <PreviewImage v-else-if="row.main_image || row.images?.[0]?.url" :src="row.main_image || row.images[0].url" />
             <div v-else style="width:56px;height:56px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:11px">无图</div>
           </template>
@@ -75,6 +78,8 @@
 
     <!-- 生图弹窗 -->
     <el-dialog v-model="genVisible" :title="`生图 - ${genProduct?.product_name || ''}`" width="900px" top="5vh" destroy-on-close>
+      <!-- 隐藏文件输入，整框点击触发 -->
+      <input ref="slotFileInput" type="file" accept="image/*" style="display:none" @change="onSlotFileChange" />
       <div v-loading="genLoading">
         <!-- 素材区 -->
         <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
@@ -104,12 +109,13 @@
             <div style="display:flex;gap:8px">
               <div v-for="idx in 2" :key="'main'+idx"
                    @dragover.prevent @drop="onDrop($event, 'main', idx-1)"
-                   style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
-                   :style="{ borderColor: slots.main[idx-1] ? '#409EFF' : '#dcdfe6' }">
-                <img v-if="slots.main[idx-1]" :src="slots.main[idx-1]" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(slots.main[idx-1])" />
-                <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'main', idx-1)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                   style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden;cursor:pointer"
+                   :style="{ borderColor: slots.main[idx-1] ? '#409EFF' : '#dcdfe6' }"
+                   @click="slots.main[idx-1] ? previewUrl(slots.main[idx-1]) : triggerSlotUpload('main', idx-1)">
+                <img v-if="slots.main[idx-1]" :src="slots.main[idx-1]" style="width:100%;height:100%;object-fit:cover" />
+                <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
                   <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
-                </el-upload>
+                </div>
                 <div v-if="slots.main[idx-1]" @click.stop="clearSlot('main', idx-1)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
               </div>
             </div>
@@ -119,12 +125,13 @@
           <div>
             <div style="font-size:13px;font-weight:bold;margin-bottom:8px">场景图（1张）</div>
             <div @dragover.prevent @drop="onDrop($event, 'scene', 0)"
-                 style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
-                 :style="{ borderColor: slots.scene[0] ? '#E6A23C' : '#dcdfe6' }">
-              <img v-if="slots.scene[0]" :src="slots.scene[0]" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(slots.scene[0])" />
-              <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'scene', 0)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                 style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden;cursor:pointer"
+                 :style="{ borderColor: slots.scene[0] ? '#E6A23C' : '#dcdfe6' }"
+                 @click="slots.scene[0] ? previewUrl(slots.scene[0]) : triggerSlotUpload('scene', 0)">
+              <img v-if="slots.scene[0]" :src="slots.scene[0]" style="width:100%;height:100%;object-fit:cover" />
+              <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
                 <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
-              </el-upload>
+              </div>
               <div v-if="slots.scene[0]" @click.stop="clearSlot('scene', 0)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
             </div>
           </div>
@@ -138,12 +145,13 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <div v-for="(v, idx) in slots.variant" :key="'var'+idx"
                    @dragover.prevent @drop="onDrop($event, 'variant', idx)"
-                   style="width:80px;height:80px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden"
-                   :style="{ borderColor: v ? '#67C23A' : '#dcdfe6' }">
-                <img v-if="v" :src="v" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="previewUrl(v)" />
-                <el-upload v-else :show-file-list="false" accept="image/*" :auto-upload="false" @change="(f: any) => onSlotUpload(f, 'variant', idx)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                   style="width:80px;height:80px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden;cursor:pointer"
+                   :style="{ borderColor: v ? '#67C23A' : '#dcdfe6' }"
+                   @click="v ? previewUrl(v) : triggerSlotUpload('variant', idx)">
+                <img v-if="v" :src="v" style="width:100%;height:100%;object-fit:cover" />
+                <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
                   <el-icon style="font-size:22px;color:#c0c4cc"><Plus /></el-icon>
-                </el-upload>
+                </div>
                 <div v-if="v" @click.stop="clearSlot('variant', idx)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px">×</div>
               </div>
             </div>
@@ -173,8 +181,8 @@
               <div v-else-if="g.status === 'generating' || g.status === 'pending'" style="width:200px;height:200px;border-radius:4px;background:linear-gradient(270deg,#409EFF,#67C23A,#E6A23C,#409EFF);background-size:600% 600%;animation:genAnim 2s ease infinite;display:flex;align-items:center;justify-content:center;color:#fff">
                 生成中...
               </div>
-              <div v-else-if="g.status === 'failed'" style="width:200px;height:200px;border-radius:4px;background:#fef0f0;display:flex;align-items:center;justify-content:center;color:#F56C6C;font-size:12px;padding:8px">
-                {{ g.error || '生成失败' }}
+              <div v-else-if="g.status === 'failed'" style="width:200px;height:200px;border-radius:4px;background:#fef0f0;display:flex;align-items:center;justify-content:center;color:#F56C6C;font-size:13px;padding:8px;text-align:center">
+                {{ isModelError(g.error) ? '无法调用模型' : '生成失败' }}
               </div>
             </div>
           </div>
@@ -187,10 +195,10 @@
       </template>
     </el-dialog>
 
-    <!-- 生成图预览(轮播) -->
-    <el-dialog v-model="genPreviewVisible" :show-header="false" width="fit-content" :close-on-click-modal="true" append-to-body center>
-      <div style="position:relative;display:inline-block">
-        <img :src="genPreviewImages[genPreviewIndex]" style="max-width:90vw;max-height:85vh;display:block" />
+    <!-- 生成图预览(轮播+滚轮缩放) -->
+    <el-dialog v-model="genPreviewVisible" :show-header="false" width="fit-content" :close-on-click-modal="true" append-to-body center @close="previewScale=1">
+      <div style="position:relative;display:inline-block;overflow:hidden" @wheel.prevent="onPreviewWheel">
+        <img :src="genPreviewImages[genPreviewIndex]" style="max-width:90vw;max-height:85vh;display:block;transition:transform 0.1s;transform-origin:center" :style="{transform:`scale(${previewScale})`}" />
         <div v-if="genPreviewImages.length > 1" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px">
           <el-button circle size="small" @click="genPreviewIndex = (genPreviewIndex - 1 + genPreviewImages.length) % genPreviewImages.length">‹</el-button>
           <span style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:32px;font-size:13px">{{ genPreviewIndex + 1 }} / {{ genPreviewImages.length }}</span>
@@ -277,6 +285,42 @@ const slots = reactive({
 const genPreviewVisible = ref(false)
 const genPreviewImages = ref<string[]>([])
 const genPreviewIndex = ref(0)
+const previewScale = ref(1)
+
+function onPreviewWheel(e: WheelEvent) {
+  previewScale.value = Math.min(5, Math.max(0.5, previewScale.value - e.deltaY * 0.002))
+}
+
+// 隐藏文件输入
+const slotFileInput = ref<HTMLInputElement | null>(null)
+const currentUploadTarget = ref<{ type: 'main' | 'scene' | 'variant'; idx: number } | null>(null)
+
+function triggerSlotUpload(type: 'main' | 'scene' | 'variant', idx: number) {
+  currentUploadTarget.value = { type, idx }
+  slotFileInput.value?.click()
+}
+
+async function onSlotFileChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  ;(e.target as HTMLInputElement).value = ''
+  if (!file || !currentUploadTarget.value) return
+  const { type, idx } = currentUploadTarget.value
+  try {
+    const res: any = await uploadApi.image(file)
+    const url = res.data.url
+    if (type === 'main') slots.main[idx] = url
+    else if (type === 'scene') slots.scene[idx] = url
+    else slots.variant[idx] = url
+  } catch (err: any) {
+    ElMessage.error(err || '上传失败')
+  }
+}
+
+function isModelError(err: string | null | undefined) {
+  if (!err) return false
+  const lower = err.toLowerCase()
+  return lower.includes('model') || lower.includes('api') || lower.includes('openai') || lower.includes('connect') || lower.includes('timeout') || lower.includes('key')
+}
 
 // 模板
 const templates = ref<any[]>([])
@@ -366,21 +410,8 @@ async function doBulkImport() {
 function previewUrl(url: string) {
   genPreviewImages.value = [url]
   genPreviewIndex.value = 0
+  previewScale.value = 1
   genPreviewVisible.value = true
-}
-
-async function onSlotUpload(file: any, type: 'main' | 'scene' | 'variant', idx: number) {
-  const f: File = file.raw
-  if (!f) return
-  try {
-    const res: any = await uploadApi.image(f)
-    const url = res.data.url
-    if (type === 'main') slots.main[idx] = url
-    else if (type === 'scene') slots.scene[idx] = url
-    else slots.variant[idx] = url
-  } catch (e: any) {
-    ElMessage.error(e || '上传失败')
-  }
 }
 
 // 生图弹窗

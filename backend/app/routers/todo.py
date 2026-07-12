@@ -48,6 +48,7 @@ def _todo_item(p: Product, db: Session) -> dict:
     no_logo = next((g for g in gen_images if not g.has_logo and g.status == "done"), None)
     with_logo = next((g for g in gen_images if g.has_logo and g.status == "done"), None)
     generating = any(g.status in ("pending", "generating") for g in gen_images)
+    failed = not generating and any(g.status == "failed" for g in gen_images) and not no_logo
     return {
         "id": p.id,
         "product_name": p.product_name,
@@ -63,6 +64,7 @@ def _todo_item(p: Product, db: Session) -> dict:
             "no_logo": {"url": no_logo.url, "status": no_logo.status} if no_logo else None,
             "with_logo": {"url": with_logo.url, "status": with_logo.status} if with_logo else None,
             "generating": generating,
+            "failed": failed,
         },
     }
 
