@@ -507,7 +507,6 @@ async function doGenerate() {
 
   if (!items.length) return ElMessage.warning('请至少拖入一张素材')
 
-  // 先清除旧素材再添加新的
   for (const item of items) {
     await todoApi.addMaterial(genProduct.value.id, item)
   }
@@ -515,11 +514,15 @@ async function doGenerate() {
   generating.value = true
   try {
     await todoApi.generate(genProduct.value.id, selectedTemplateId.value)
-    ElMessage.success('已开始生成，请等待...')
-    // 轮询状态
     pollGenStatus()
-  } catch (e: any) { ElMessage.error(e || '生成失败') }
-  finally { generating.value = false }
+  } catch (e: any) {
+    const msg = typeof e === 'string' ? e : ''
+    if (msg.includes('API Key') || msg.includes('未配置') || msg.includes('api_key')) {
+      ElMessage.error('请配置模型（系统设置 → AI 生图设置）')
+    } else {
+      ElMessage.error('生成失败')
+    }
+  } finally { generating.value = false }
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -533,7 +536,20 @@ function pollGenStatus() {
     if (allDone && pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
-      load() // 刷新列表更新主图
+      load() // 刷新列表更新主图缩略图
+      // 根据结果给出提示
+      const hasDone = genResults.value.some((g: any) => g.status === 'done')
+      const allFailed = genResults.value.every((g: any) => g.status === 'failed')
+      if (allFailed) {
+        const firstError = genResults.value[0]?.error || ''
+        if (isModelError(firstError)) {
+          ElMessage.error('请配置模型（系统设置 → AI 生图设置）')
+        } else {
+          ElMessage.error('生成失败')
+        }
+      } else if (hasDone) {
+        ElMessage.success('生图完成')
+      }
     }
   }, 3000)
 }
