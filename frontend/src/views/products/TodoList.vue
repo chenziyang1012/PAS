@@ -195,17 +195,18 @@
       </template>
     </el-dialog>
 
-    <!-- 生成图预览(轮播+滚轮缩放) -->
-    <el-dialog v-model="genPreviewVisible" :show-header="false" width="fit-content" :close-on-click-modal="true" append-to-body center @close="previewScale=1">
-      <div style="width:min(90vw,900px);height:min(85vh,750px);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;position:relative;user-select:none" @wheel.prevent.stop="onPreviewWheel">
-        <img :src="genPreviewImages[genPreviewIndex]" style="max-width:100%;max-height:100%;display:block;transition:transform 0.1s;transform-origin:center" :style="{transform:`scale(${previewScale})`}" draggable="false" />
-        <div v-if="genPreviewImages.length > 1" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px">
-          <el-button circle size="small" @click="genPreviewIndex = (genPreviewIndex - 1 + genPreviewImages.length) % genPreviewImages.length">‹</el-button>
+    <!-- 全屏灯箱预览 -->
+    <Teleport to="body">
+      <div v-if="genPreviewVisible" class="lightbox-overlay" @click.self="closeLightbox" @wheel.prevent="onPreviewWheel">
+        <img :src="genPreviewImages[genPreviewIndex]" class="lightbox-img" :style="{transform:`scale(${previewScale})`}" draggable="false" @click.stop />
+        <div v-if="genPreviewImages.length > 1" class="lightbox-nav">
+          <el-button circle size="small" @click.stop="genPreviewIndex = (genPreviewIndex - 1 + genPreviewImages.length) % genPreviewImages.length">‹</el-button>
           <span style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:32px;font-size:13px">{{ genPreviewIndex + 1 }} / {{ genPreviewImages.length }}</span>
-          <el-button circle size="small" @click="genPreviewIndex = (genPreviewIndex + 1) % genPreviewImages.length">›</el-button>
+          <el-button circle size="small" @click.stop="genPreviewIndex = (genPreviewIndex + 1) % genPreviewImages.length">›</el-button>
         </div>
+        <div class="lightbox-close" @click="closeLightbox">✕</div>
       </div>
-    </el-dialog>
+    </Teleport>
 
     <!-- 模板管理 -->
     <el-dialog v-model="templateDialogVisible" title="提示词模板管理" width="600px">
@@ -288,7 +289,12 @@ const genPreviewIndex = ref(0)
 const previewScale = ref(1)
 
 function onPreviewWheel(e: WheelEvent) {
-  previewScale.value = Math.min(5, Math.max(0.5, previewScale.value - e.deltaY * 0.002))
+  previewScale.value = Math.min(10, Math.max(0.2, previewScale.value - e.deltaY * 0.002))
+}
+
+function closeLightbox() {
+  genPreviewVisible.value = false
+  previewScale.value = 1
 }
 
 // 隐藏文件输入
@@ -615,5 +621,43 @@ onUnmounted(() => { clearInterval(_timer); if (pollTimer) clearInterval(pollTime
   50% { background-position: 100% 50% }
   100% { background-position: 0% 50% }
 }
-.el-dialog .el-dialog__body:has(> div > img) { padding: 0; line-height: 0; }
+.lightbox-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  user-select: none;
+}
+.lightbox-img {
+  max-width: 95vw;
+  max-height: 95vh;
+  transition: transform 0.1s;
+  transform-origin: center;
+  cursor: default;
+}
+.lightbox-nav {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10000;
+}
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10000;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.lightbox-close:hover { opacity: 1; }
 </style>
