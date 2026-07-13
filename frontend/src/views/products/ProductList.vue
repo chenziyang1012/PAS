@@ -125,6 +125,21 @@ async function load() {
   } finally { loading.value = false }
 }
 
+async function silentRefresh() {
+  // 批量导入对话框打开时跳过
+  if (bulkImportVisible.value) return
+  // 有行被选中时跳过，避免清空选择状态
+  if (selected.value.length > 0) return
+  try {
+    const res: any = await productApi.list({ ...query, page_size: pageSize.value })
+    const incoming = JSON.stringify(res.data.items)
+    if (incoming !== JSON.stringify(list.value)) {
+      list.value = res.data.items
+      total.value = res.data.total
+    }
+  } catch {}
+}
+
 async function submitReview(row: any) {
   await ElMessageBox.confirm('确认提交审核？')
   try {
@@ -233,6 +248,6 @@ async function doBulkImport() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); _timer = setInterval(load, 15000) })
+onMounted(() => { load(); _timer = setInterval(silentRefresh, 15000) })
 onUnmounted(() => clearInterval(_timer))
 </script>
