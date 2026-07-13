@@ -350,6 +350,20 @@ async function load() {
   } finally { loading.value = false }
 }
 
+async function silentRefresh() {
+  // 有对话框打开时跳过，不打断用户操作
+  if (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value) return
+  try {
+    const res: any = await todoApi.list({ ...query, page_size: pageSize.value })
+    // 数据没变化就不替换，避免不必要的重渲染和闪屏
+    const incoming = JSON.stringify(res.data.items)
+    if (incoming !== JSON.stringify(list.value)) {
+      list.value = res.data.items
+      total.value = res.data.total
+    }
+  } catch {} // 后台静默失败，不弹错误
+}
+
 async function markComplete(row: any) {
   await ElMessageBox.confirm('确认标记完成？完成后将进入已做列表。')
   try {
@@ -633,7 +647,7 @@ async function delTemplate(row: any) {
 }
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); _timer = setInterval(load, 15000) })
+onMounted(() => { load(); _timer = setInterval(silentRefresh, 15000) })
 onUnmounted(() => { clearInterval(_timer); if (pollTimer) clearInterval(pollTimer) })
 </script>
 

@@ -102,6 +102,19 @@ async function load() {
 
 function onSizeChange() { query.page = 1; load() }
 
+async function silentRefresh() {
+  // 驳回对话框打开时跳过
+  if (rejectVisible.value) return
+  try {
+    const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
+    const incoming = JSON.stringify(res.data.items)
+    if (incoming !== JSON.stringify(list.value)) {
+      list.value = res.data.items
+      total.value = res.data.total
+    }
+  } catch {}
+}
+
 async function loadSelectors() {
   if (auth.user?.role === 'selector') return
   const res: any = await userApi.listSelectors()
@@ -156,6 +169,6 @@ async function batchApprove() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); loadSelectors(); _timer = setInterval(load, 15000) })
+onMounted(() => { load(); loadSelectors(); _timer = setInterval(silentRefresh, 15000) })
 onUnmounted(() => clearInterval(_timer))
 </script>
