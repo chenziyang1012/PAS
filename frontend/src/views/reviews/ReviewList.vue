@@ -18,11 +18,8 @@
         <el-table-column type="selection" width="45" />
         <el-table-column label="主图" width="80">
           <template #default="{row}">
-            <el-image v-if="row.main_image || row.images?.[0]?.url"
-              :src="row.main_image || row.images[0].url"
-              :preview-src-list="[row.main_image || row.images[0].url]"
-              style="width:56px;height:56px;object-fit:cover;border-radius:4px"
-              preview-teleported fit="cover" />
+            <PreviewImage v-if="row.main_image || row.images?.[0]?.url"
+              :src="row.main_image || row.images[0].url" />
             <div v-else style="width:56px;height:56px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:11px">无图</div>
           </template>
         </el-table-column>
@@ -76,6 +73,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { reviewApi, userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import PreviewImage from '@/components/PreviewImage.vue'
 
 const router = useRouter()
 const auth = useAuthStore()

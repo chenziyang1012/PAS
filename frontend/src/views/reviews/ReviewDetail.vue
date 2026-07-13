@@ -14,7 +14,7 @@
 
       <div style="margin-top:16px">
         <div style="font-weight:bold;margin-bottom:8px">产品图片</div>
-        <el-image v-for="img in product.images" :key="img.id" :src="img.url" style="width:120px;height:120px;margin-right:8px" fit="cover" :preview-src-list="product.images.map((i:any)=>i.url)" />
+        <PreviewImage v-for="img in product.images" :key="img.id" :src="img.url" style="margin-right:8px;vertical-align:top" />
       </div>
 
       <div style="margin-top:24px;display:flex;gap:12px">
@@ -50,6 +50,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { reviewApi } from '@/api'
+import PreviewImage from '@/components/PreviewImage.vue'
 
 const route = useRoute()
 const router = useRouter()
