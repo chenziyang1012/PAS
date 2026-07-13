@@ -1,7 +1,24 @@
 """Scrape product title, main image, and manufacturer from a URL."""
 import json
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
+
+
+def _split_proxy_auth(proxy_url: str | None):
+    """Parse proxy URL into (clean_url, (user, password)) or (url, None).
+
+    curl_cffi with impersonate mode doesn't forward credentials embedded
+    in the proxy URL during the CONNECT tunnel — they must be passed
+    separately via proxy_auth.
+    """
+    if not proxy_url:
+        return proxy_url, None
+    parsed = urlparse(proxy_url)
+    if parsed.username:
+        port = f":{parsed.port}" if parsed.port else ""
+        clean = f"{parsed.scheme}://{parsed.hostname}{port}"
+        return clean, (parsed.username, parsed.password or "")
+    return proxy_url, None
 
 try:
     import httpx
@@ -97,6 +114,7 @@ def _scrape_1688(url: str, cookie_override: str | None = None) -> dict:
 
     try:
         proxy_url = settings.PROXY_URL or None
+        proxy_clean, proxy_auth = _split_proxy_auth(proxy_url)
         resp = cffi_requests.get(
             url,
             impersonate="chrome120",
@@ -109,7 +127,8 @@ def _scrape_1688(url: str, cookie_override: str | None = None) -> dict:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "same-site",
             },
-            proxies={"http": proxy_url, "https": proxy_url} if proxy_url else None,
+            proxies={"http": proxy_clean, "https": proxy_clean} if proxy_clean else None,
+            proxy_auth=proxy_auth,
         )
         resp.raise_for_status()
         html = resp.text
@@ -258,6 +277,7 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
 
     try:
         proxy_url = settings.PROXY_URL or None
+        proxy_clean, proxy_auth = _split_proxy_auth(proxy_url)
         resp = cffi_requests.get(
             url,
             impersonate="chrome120",
@@ -270,7 +290,8 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "same-site",
             },
-            proxies={"http": proxy_url, "https": proxy_url} if proxy_url else None,
+            proxies={"http": proxy_clean, "https": proxy_clean} if proxy_clean else None,
+            proxy_auth=proxy_auth,
         )
         resp.raise_for_status()
         html = resp.text
