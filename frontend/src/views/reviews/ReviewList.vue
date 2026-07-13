@@ -95,6 +95,8 @@ async function load() {
   try {
     const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
     list.value = res.data.items; total.value = res.data.total
+  } catch (e: any) {
+    ElMessage.error(e || '加载失败')
   } finally { loading.value = false }
 }
 
