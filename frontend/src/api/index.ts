@@ -26,6 +26,7 @@ export const authApi = {
 
 export const userApi = {
   list: (params?: object) => http.get('/api/users', { params }),
+  listSelectors: () => http.get('/api/users/selectors'),
   create: (data: object) => http.post('/api/users', data),
   update: (id: number, data: object) => http.put(`/api/users/${id}`, data),
   updateStatus: (id: number, status: string) => http.patch(`/api/users/${id}/status`, { status }),

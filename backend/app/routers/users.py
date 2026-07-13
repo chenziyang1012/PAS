@@ -7,6 +7,15 @@ from app.auth import get_current_user, hash_password, require_roles
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
+@router.get("/selectors")
+def list_selectors(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin", "reviewer")),
+):
+    """Return all enabled selector users — accessible to reviewer and admin for filtering."""
+    items = db.query(User).filter(User.role == "selector", User.status == "enabled").all()
+    return Resp(data={"items": [UserOut.model_validate(u) for u in items]})
+
 @router.get("")
 def list_users(
     page: int = 1, page_size: int = 20,

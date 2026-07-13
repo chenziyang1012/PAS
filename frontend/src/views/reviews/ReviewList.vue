@@ -104,7 +104,7 @@ function onSizeChange() { query.page = 1; load() }
 
 async function loadSelectors() {
   if (auth.user?.role === 'selector') return
-  const res: any = await userApi.list({ role: 'selector', page_size: 100 })
+  const res: any = await userApi.listSelectors()
   selectors.value = res.data?.items || []
 }
 
