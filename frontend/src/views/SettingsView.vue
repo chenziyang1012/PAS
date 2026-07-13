@@ -80,8 +80,12 @@
             <el-input v-model="openaiApiKey" placeholder="sk-..." show-password />
           </el-form-item>
         </el-form>
-        <div style="margin-top:4px;margin-bottom:16px;margin-left:100px">
+        <div style="margin-top:4px;margin-bottom:16px;margin-left:100px;display:flex;gap:8px;align-items:center">
           <el-button type="primary" :loading="savingOpenai" @click="saveOpenaiSettings">保存设置</el-button>
+          <el-button :loading="testingOpenai" @click="testOpenaiConn">测试连接</el-button>
+        </div>
+        <div v-if="openaiTestResult" style="margin-bottom:16px;margin-left:100px;max-width:400px">
+          <el-alert :type="openaiTestResult.ok ? 'success' : 'error'" :closable="false" :title="openaiTestResult.msg" />
         </div>
       </template>
 
@@ -161,6 +165,8 @@ const proxyTestResult = ref<{ ok: boolean; msg: string } | null>(null)
 const openaiBaseUrl = ref('')
 const openaiApiKey = ref('')
 const savingOpenai = ref(false)
+const testingOpenai = ref(false)
+const openaiTestResult = ref<{ ok: boolean; msg: string } | null>(null)
 
 const bookmarkletTag = ref('')
 
@@ -307,6 +313,7 @@ async function testProxy() {
 
 async function saveOpenaiSettings() {
   savingOpenai.value = true
+  openaiTestResult.value = null
   try {
     await todoApi.setOpenaiSettings({ api_key: openaiApiKey.value.trim(), base_url: openaiBaseUrl.value.trim() })
     ElMessage.success('AI 设置已保存')
@@ -315,6 +322,19 @@ async function saveOpenaiSettings() {
     ElMessage.error(e || '保存失败')
   } finally {
     savingOpenai.value = false
+  }
+}
+
+async function testOpenaiConn() {
+  testingOpenai.value = true
+  openaiTestResult.value = null
+  try {
+    const res: any = await todoApi.testOpenaiConnection()
+    openaiTestResult.value = res.data
+  } catch (e: any) {
+    openaiTestResult.value = { ok: false, msg: e || '请求失败' }
+  } finally {
+    testingOpenai.value = false
   }
 }
 

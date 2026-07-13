@@ -96,4 +96,5 @@ export const todoApi = {
   // OpenAI 配置
   getOpenaiSettings: () => http.get('/api/todo/settings/openai'),
   setOpenaiSettings: (data: object) => http.put('/api/todo/settings/openai', data),
+  testOpenaiConnection: () => http.post('/api/todo/settings/openai/test'),
 }

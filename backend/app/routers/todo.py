@@ -512,3 +512,19 @@ def set_openai_settings(body: dict, current_user: User = Depends(require_roles("
     settings.OPENAI_API_KEY = body.get("api_key", "")
     settings.OPENAI_BASE_URL = body.get("base_url", settings.OPENAI_BASE_URL)
     return Resp(message="配置已保存")
+
+
+@router.post("/settings/openai/test")
+def test_openai_connection(current_user: User = Depends(require_roles("admin"))):
+    """测试 OpenAI API 连接是否正常，返回 ok/error。"""
+    from app.config import settings
+    if not settings.OPENAI_API_KEY:
+        return Resp(data={"ok": False, "msg": "未配置 API Key"})
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=10)
+        models = client.models.list()
+        names = [m.id for m in (models.data or [])[:5]]
+        return Resp(data={"ok": True, "msg": f"连接成功，可用模型: {', '.join(names) or '(无列表)'}"})
+    except Exception as e:
+        return Resp(data={"ok": False, "msg": f"连接失败: {str(e)[:200]}"})
