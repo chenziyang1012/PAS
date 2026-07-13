@@ -3,7 +3,7 @@
     <el-card>
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <el-input v-model="query.keyword" placeholder="产品名称" clearable style="width:180px" @change="load" />
-        <el-select v-if="auth.user?.role==='admin'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="load">
+        <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="load">
           <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
         </el-select>
       </div>
@@ -43,7 +43,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination style="margin-top:16px" v-model:current-page="query.page" :page-size="20" :total="total" @current-change="load" layout="total,prev,pager,next" />
+      <el-pagination style="margin-top:16px" v-model:current-page="query.page" v-model:page-size="pageSize" :page-sizes="[20,50,100,200]" :total="total" @current-change="load" @size-change="onSizeChange" layout="total,sizes,prev,pager,next,jumper" />
     </el-card>
 
     <el-dialog v-model="rejectVisible" title="驳回审核" width="420px" @closed="resetRejectForm">
@@ -82,6 +82,7 @@ const total = ref(0)
 const loading = ref(false)
 const selected = ref<any[]>([])
 const selectors = ref<any[]>([])
+const pageSize = ref(20)
 const query = reactive({ page: 1, keyword: '', creator_id: undefined as number | undefined })
 
 const rejectVisible = ref(false)
@@ -92,13 +93,15 @@ const rejectForm = reactive({ type: 'other', reason: '' })
 async function load() {
   loading.value = true
   try {
-    const res: any = await reviewApi.listPending({ ...query, page_size: 20 })
+    const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
     list.value = res.data.items; total.value = res.data.total
   } finally { loading.value = false }
 }
 
+function onSizeChange() { query.page = 1; load() }
+
 async function loadSelectors() {
-  if (auth.user?.role !== 'admin') return
+  if (auth.user?.role === 'selector') return
   const res: any = await userApi.list({ role: 'selector', page_size: 100 })
   selectors.value = res.data?.items || []
 }
