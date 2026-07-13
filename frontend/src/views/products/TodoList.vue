@@ -19,17 +19,23 @@
         <el-table-column type="selection" width="45" />
         <el-table-column label="主图" width="130">
           <template #default="{row}">
-            <div v-if="row.generated_images?.generating" style="width:56px;height:56px;border-radius:4px;background:linear-gradient(270deg,#409EFF,#67C23A,#E6A23C,#409EFF);background-size:600% 600%;animation:genAnim 2s ease infinite;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">
-              生成中...
+            <div style="position:relative;display:inline-block">
+              <!-- 有生成图则显示生成图，否则始终显示原始图 -->
+              <div v-if="row.generated_images?.no_logo" style="cursor:pointer" @click="openGenPreview(row)">
+                <img :src="row.generated_images.no_logo.url" style="width:56px;height:56px;object-fit:cover;border-radius:4px" />
+              </div>
+              <PreviewImage v-else-if="row.main_image || row.images?.[0]?.url" :src="row.main_image || row.images[0].url" />
+              <div v-else style="width:56px;height:56px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:11px">无图</div>
+              <!-- 状态角标：不遮挡图片，仅在底部显示一条小色条 -->
+              <div v-if="row.generated_images?.generating"
+                   style="position:absolute;bottom:0;left:0;right:0;background:rgba(64,158,255,0.85);color:#fff;font-size:9px;text-align:center;border-radius:0 0 4px 4px;padding:1px 0">
+                生成中
+              </div>
+              <div v-else-if="row.generated_images?.failed"
+                   style="position:absolute;bottom:0;left:0;right:0;background:rgba(245,108,108,0.85);color:#fff;font-size:9px;text-align:center;border-radius:0 0 4px 4px;padding:1px 0">
+                生成失败
+              </div>
             </div>
-            <div v-else-if="row.generated_images?.no_logo" style="display:inline-block;cursor:pointer" @click="openGenPreview(row)">
-              <img :src="row.generated_images.no_logo.url" style="width:56px;height:56px;object-fit:cover;border-radius:4px" />
-            </div>
-            <div v-else-if="row.generated_images?.failed" style="width:56px;height:56px;background:#fef0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#F56C6C;font-size:10px;text-align:center;padding:2px">
-              生成失败
-            </div>
-            <PreviewImage v-else-if="row.main_image || row.images?.[0]?.url" :src="row.main_image || row.images[0].url" />
-            <div v-else style="width:56px;height:56px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:11px">无图</div>
           </template>
         </el-table-column>
         <el-table-column label="产品名称" min-width="160">
@@ -532,7 +538,7 @@ function pollGenStatus() {
     if (!genProduct.value) return
     const res: any = await todoApi.getGenerated(genProduct.value.id)
     genResults.value = res.data || []
-    const allDone = genResults.value.every((g: any) => g.status === 'done' || g.status === 'failed')
+    const allDone = genResults.value.length > 0 && genResults.value.every((g: any) => g.status === 'done' || g.status === 'failed')
     if (allDone && pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
