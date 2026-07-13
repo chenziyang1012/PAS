@@ -339,8 +339,9 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
         from openai import OpenAI
         client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
 
-        # 下载素材图片
-        import tempfile
+        # 下载素材图片，统一转为 RGBA PNG（images.edit 要求真正的 PNG 格式）
+        import tempfile, io
+        from PIL import Image as PilImage
         temp_files = []
         for url in material_urls:
             try:
@@ -348,8 +349,14 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                     url = "https:" + url
                 r = req.get(url, timeout=15)
                 r.raise_for_status()
+                img = PilImage.open(io.BytesIO(r.content)).convert("RGBA")
+                # 裁为正方形（images.edit 要求正方形输入）
+                w, h = img.size
+                side = max(w, h)
+                square = PilImage.new("RGBA", (side, side), (255, 255, 255, 0))
+                square.paste(img, ((side - w) // 2, (side - h) // 2))
                 tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                tmp.write(r.content)
+                square.save(tmp.name, "PNG")
                 tmp.close()
                 temp_files.append(tmp.name)
             except Exception:
