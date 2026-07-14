@@ -369,9 +369,6 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
 
     db = SessionLocal()
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=120.0)
-
         # 下载素材图片，统一转为 RGBA PNG（images.edit 要求真正的 PNG 格式）
         import tempfile, io
         from PIL import Image as PilImage
@@ -400,51 +397,36 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             _update_gen_status(db, with_logo_id, "failed", error="无法下载素材图片")
             return
 
-        # 多张参考图拼合成一张网格图，API 只接受单张输入
-        import math, tempfile as _tmpmod
-        def _make_composite(paths: list[str]) -> str:
-            if len(paths) == 1:
-                return paths[0]
-            imgs = [PilImage.open(p).convert("RGBA") for p in paths]
-            cols = math.ceil(math.sqrt(len(imgs)))
-            rows = math.ceil(len(imgs) / cols)
-            cell = 512
-            canvas = PilImage.new("RGBA", (cols * cell, rows * cell), (255, 255, 255, 0))
-            for i, img in enumerate(imgs):
-                r, c = divmod(i, cols)
-                canvas.paste(img.resize((cell, cell), PilImage.LANCZOS), (c * cell, r * cell))
-            canvas = canvas.resize((1024, 1024), PilImage.LANCZOS)
-            tmp = _tmpmod.NamedTemporaryFile(suffix=".png", delete=False)
-            canvas.save(tmp.name, "PNG")
-            tmp.close()
-            return tmp.name
-
-        composite_path = _make_composite(temp_files)
-        # composite_path 是临时文件，生成完清理
-        if composite_path not in temp_files:
-            temp_files.append(composite_path)
-
         out_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
         os.makedirs(out_dir, exist_ok=True)
 
         def _call_edit(prompt: str) -> bytes:
-            """调用 images.edit，传入拼合后的参考图。"""
-            with open(composite_path, "rb") as fh:
-                result = client.images.edit(
-                    model="gpt-image-2",
-                    image=fh,
-                    prompt=prompt,
-                    size="1024x1024",
-                    n=1,
+            """直接调用 REST API，多张参考图作为 image[] 字段上传。"""
+            base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
+            fhs = [open(p, "rb") for p in temp_files]
+            try:
+                files = [("image[]", (os.path.basename(p), fh, "image/png")) for p, fh in zip(temp_files, fhs)]
+                data = {"model": "gpt-image-2", "prompt": prompt, "size": "1024x1024", "n": "1"}
+                resp = req.post(
+                    f"{base}/images/edits",
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                    files=files,
+                    data=data,
+                    timeout=120,
                 )
-            img_data = result.data[0]
-            if hasattr(img_data, 'b64_json') and img_data.b64_json:
-                import base64
-                return base64.b64decode(img_data.b64_json)
-            elif hasattr(img_data, 'url') and img_data.url:
-                return req.get(img_data.url, timeout=30).content
-            else:
-                raise Exception("API未返回图片数据")
+                resp.raise_for_status()
+                result = resp.json()
+                img_data = result["data"][0]
+                if img_data.get("b64_json"):
+                    import base64
+                    return base64.b64decode(img_data["b64_json"])
+                elif img_data.get("url"):
+                    return req.get(img_data["url"], timeout=30).content
+                else:
+                    raise Exception("API未返回图片数据")
+            finally:
+                for fh in fhs:
+                    fh.close()
 
         def _save_and_resize(img_bytes: bytes, path: str):
             with open(path, "wb") as f:
