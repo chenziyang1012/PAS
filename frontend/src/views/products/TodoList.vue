@@ -109,39 +109,6 @@
 
         <!-- 框区域 -->
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-          <!-- 主视图框 x2 -->
-          <div>
-            <div style="font-size:13px;font-weight:bold;margin-bottom:8px">主视图（2张）</div>
-            <div style="display:flex;gap:8px">
-              <div v-for="idx in 2" :key="'main'+idx"
-                   @dragover.prevent @drop="onDrop($event, 'main', idx-1)"
-                   style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden;cursor:pointer"
-                   :style="{ borderColor: slots.main[idx-1] ? '#409EFF' : '#dcdfe6' }"
-                   @click="slots.main[idx-1] ? previewUrl(slots.main[idx-1]) : triggerSlotUpload('main', idx-1)">
-                <img v-if="slots.main[idx-1]" :src="slots.main[idx-1]" style="width:100%;height:100%;object-fit:cover" />
-                <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
-                  <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
-                </div>
-                <div v-if="slots.main[idx-1]" @click.stop="clearSlot('main', idx-1)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 场景图框 x1 -->
-          <div>
-            <div style="font-size:13px;font-weight:bold;margin-bottom:8px">场景图（1张）</div>
-            <div @dragover.prevent @drop="onDrop($event, 'scene', 0)"
-                 style="width:100px;height:100px;border:2px dashed #dcdfe6;border-radius:4px;position:relative;overflow:hidden;cursor:pointer"
-                 :style="{ borderColor: slots.scene[0] ? '#E6A23C' : '#dcdfe6' }"
-                 @click="slots.scene[0] ? previewUrl(slots.scene[0]) : triggerSlotUpload('scene', 0)">
-              <img v-if="slots.scene[0]" :src="slots.scene[0]" style="width:100%;height:100%;object-fit:cover" />
-              <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
-                <el-icon style="font-size:28px;color:#c0c4cc"><Plus /></el-icon>
-              </div>
-              <div v-if="slots.scene[0]" @click.stop="clearSlot('scene', 0)" style="position:absolute;top:2px;right:2px;cursor:pointer;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px">×</div>
-            </div>
-          </div>
-
           <!-- 变体图框 -->
           <div>
             <div style="font-size:13px;font-weight:bold;margin-bottom:8px">
@@ -250,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -287,6 +254,7 @@ const slots = reactive({
   scene: [''] as string[],
   variant: ['', '', '', '', '', '', ''] as string[],
 })
+const slotsCache = new Map<number, string[]>() // 记住每个产品上次拖入的变体图
 
 // 生成图预览
 const genPreviewVisible = ref(false)
@@ -305,9 +273,9 @@ function closeLightbox() {
 
 // 隐藏文件输入
 const slotFileInput = ref<HTMLInputElement | null>(null)
-const currentUploadTarget = ref<{ type: 'main' | 'scene' | 'variant'; idx: number } | null>(null)
+const currentUploadTarget = ref<{ type: 'variant'; idx: number } | null>(null)
 
-function triggerSlotUpload(type: 'main' | 'scene' | 'variant', idx: number) {
+function triggerSlotUpload(type: 'variant', idx: number) {
   currentUploadTarget.value = { type, idx }
   slotFileInput.value?.click()
 }
@@ -316,13 +284,11 @@ async function onSlotFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   ;(e.target as HTMLInputElement).value = ''
   if (!file || !currentUploadTarget.value) return
-  const { type, idx } = currentUploadTarget.value
+  const { idx } = currentUploadTarget.value
   try {
     const res: any = await uploadApi.image(file)
     const url = res.data.url
-    if (type === 'main') slots.main[idx] = url
-    else if (type === 'scene') slots.scene[idx] = url
-    else slots.variant[idx] = url
+    slots.variant[idx] = url
   } catch (err: any) {
     ElMessage.error(err || '上传失败')
   }
@@ -441,32 +407,26 @@ function previewUrl(url: string) {
 }
 
 // 生图弹窗
+function saveSlotCache() {
+  if (genProduct.value?.id != null) {
+    slotsCache.set(genProduct.value.id, [...slots.variant])
+  }
+}
+
 async function openImageGen(row: any) {
   genProduct.value = row
   genVisible.value = true
   genLoading.value = true
   scrapedImages.value = []
   genResults.value = []
-  slots.main = ['', '']
-  slots.scene = ['']
-  slots.variant = ['', '', '', '', '', '', '']
+  slots.variant = slotsCache.has(row.id)
+    ? [...slotsCache.get(row.id)!]
+    : ['', '', '', '', '', '', '']
   try {
     // 加载已有素材
     const matRes: any = await todoApi.getMaterials(row.id)
     if (matRes.data?.length) {
       scrapedImages.value = matRes.data.map((m: any) => ({ url: m.url, type: m.type, id: m.id }))
-      // 恢复已分配的素材到框
-      for (const m of matRes.data) {
-        if (m.type === 'main') {
-          const idx = slots.main.indexOf('')
-          if (idx >= 0) slots.main[idx] = m.url
-        } else if (m.type === 'scene') {
-          if (!slots.scene[0]) slots.scene[0] = m.url
-        } else if (m.type === 'variant') {
-          const idx = slots.variant.indexOf('')
-          if (idx >= 0) slots.variant[idx] = m.url
-        }
-      }
     }
     // 加载生成结果
     const genRes: any = await todoApi.getGenerated(row.id)
@@ -492,18 +452,14 @@ function onDragStart(e: DragEvent, url: string) {
   e.dataTransfer?.setData('text/plain', url)
 }
 
-function onDrop(e: DragEvent, type: 'main' | 'scene' | 'variant', idx: number) {
+function onDrop(e: DragEvent, type: 'variant', idx: number) {
   const url = e.dataTransfer?.getData('text/plain')
   if (!url) return
-  if (type === 'main') slots.main[idx] = url
-  else if (type === 'scene') slots.scene[idx] = url
-  else slots.variant[idx] = url
+  slots.variant[idx] = url
 }
 
-function clearSlot(type: 'main' | 'scene' | 'variant', idx: number) {
-  if (type === 'main') slots.main[idx] = ''
-  else if (type === 'scene') slots.scene[idx] = ''
-  else slots.variant[idx] = ''
+function clearSlot(type: 'variant', idx: number) {
+  slots.variant[idx] = ''
 }
 
 function addVariantSlot() {
@@ -511,7 +467,7 @@ function addVariantSlot() {
 }
 
 function isUsed(url: string) {
-  return slots.main.includes(url) || slots.scene.includes(url) || slots.variant.includes(url)
+  return slots.variant.includes(url)
 }
 
 // 生图
@@ -521,8 +477,6 @@ async function doGenerate() {
 
   // 保存素材分配
   const items: any[] = []
-  slots.main.filter(Boolean).forEach((url, i) => items.push({ url, type: 'main', sort_order: i }))
-  slots.scene.filter(Boolean).forEach((url, i) => items.push({ url, type: 'scene', sort_order: i }))
   slots.variant.filter(Boolean).forEach((url, i) => items.push({ url, type: 'variant', sort_order: i }))
 
   if (!items.length) return ElMessage.warning('请至少拖入一张素材')
@@ -645,6 +599,13 @@ async function delTemplate(row: any) {
     await loadTemplates()
   } catch (e: any) { ElMessage.error(e || '删除失败') }
 }
+
+// 监听对话框关闭，自动保存变体框缓存
+watch(genVisible, (newVal, oldVal) => {
+  if (oldVal === true && newVal === false) {
+    saveSlotCache()
+  }
+})
 
 let _timer: ReturnType<typeof setInterval>
 onMounted(() => { load(); _timer = setInterval(silentRefresh, 15000) })
