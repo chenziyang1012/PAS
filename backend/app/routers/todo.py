@@ -412,7 +412,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                     headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
                     files=files,
                     data=data,
-                    timeout=120,
+                    timeout=req.Timeout(connect=15, read=300, write=60, pool=15),
                 )
                 resp.raise_for_status()
                 result = resp.json()
