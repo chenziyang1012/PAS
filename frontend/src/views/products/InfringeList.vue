@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
@@ -176,6 +176,13 @@ async function doBulkImport() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); _timer = setInterval(load, 15000) })
-onUnmounted(() => clearInterval(_timer))
+watch([() => query.page, pageSize], () => {
+  sessionStorage.setItem('pag:infringe', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+})
+onMounted(() => {
+  const saved = sessionStorage.getItem('pag:infringe')
+  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  load(); _timer = setInterval(load, 15000)
+})
+onUnmounted(() => { clearInterval(_timer) })
 </script>

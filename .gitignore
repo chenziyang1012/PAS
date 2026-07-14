@@ -22,6 +22,27 @@ frontend/src/**/*.vue.js
 # Uploads
 backend/uploads/
 
+# Python packages installed directly into backend/
+backend/*.dist-info/
+backend/PIL/
+backend/bin/
+backend/images/
+backend/annotated_types/
+backend/anyio/
+backend/certifi/
+backend/colorama/
+backend/distro/
+backend/h11/
+backend/httpcore/
+backend/httpx/
+backend/idna/
+backend/pydantic/
+backend/pydantic_core/
+backend/sniffio/
+backend/tqdm/
+backend/typing_extensions.py
+backend/typing_inspection/
+
 # Kiro / editor
 .claude/
 

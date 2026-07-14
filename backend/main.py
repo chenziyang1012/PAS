@@ -31,6 +31,25 @@ def _migrate():
 
 _migrate()
 
+def _cleanup_stale_pending():
+    """Mark any pending/generating generated_images as failed on startup — they belong to threads that died with a previous process."""
+    from app.database import SessionLocal
+    from app.models import GeneratedImage
+    db = SessionLocal()
+    try:
+        stale = db.query(GeneratedImage).filter(GeneratedImage.status.in_(["pending", "generating"])).all()
+        for g in stale:
+            g.status = "failed"
+            g.error = "服务重启，请重新生图"
+        if stale:
+            db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+_cleanup_stale_pending()
+
 app = FastAPI(title="产品审核系统")
 
 app.add_middleware(

@@ -329,7 +329,10 @@ async function testOpenaiConn() {
   testingOpenai.value = true
   openaiTestResult.value = null
   try {
-    const res: any = await todoApi.testOpenaiConnection()
+    const res: any = await todoApi.testOpenaiConnection({
+      api_key: openaiApiKey.value.trim(),
+      base_url: openaiBaseUrl.value.trim(),
+    })
     openaiTestResult.value = res.data
   } catch (e: any) {
     openaiTestResult.value = { ok: false, msg: e || '请求失败' }

@@ -262,7 +262,9 @@ def _json_ld_brand(soup) -> str | None:
 
 
 def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
-    """Scrape ALL product images from a 1688 page (main images + detail images)."""
+    """Scrape main carousel images and SKU variant (color/size/spec) images from 1688.
+    Excludes description/detail images.
+    """
     if "1688.com" not in url:
         return {"error": "仅支持1688链接"}
 
@@ -299,56 +301,70 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
         if "punish-component" in html or "g.alicdn.com/sd/punish" in html:
             return {"error": "1688 触发了安全验证，请稍后重试或更换Cookie"}
 
-        urls = set()
+        seen: set = set()
+        result: list = []
 
-        # 1. Extract from JSON patterns
-        img_patterns = [
-            r'"imageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"imgUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"originalImageURI"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"searchImageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"picUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"coverImage"\s*:\s*"((?:https?:)?//[^"]+)"',
-            r'"image"\s*:\s*"((?:https?:)?//[^"]*alicdn\.com[^"]*)"',
-        ]
-        for pattern in img_patterns:
-            for m in re.finditer(pattern, html):
-                u = m.group(1)
-                if u.startswith("//"):
-                    u = "https:" + u
-                if "alicdn.com" in u and not u.endswith((".gif", ".ico", ".svg")):
-                    urls.add(u)
-
-        # 2. Extract all alicdn URLs from page
-        all_matches = re.findall(r'((?:https?:)?//[^"\'\s]*?alicdn\.com[^"\'>\s]*?\.(?:jpg|jpeg|png|webp))', html, re.IGNORECASE)
-        for u in all_matches:
+        def add(u: str):
+            if not u:
+                return
             if u.startswith("//"):
                 u = "https:" + u
-            if not u.endswith((".gif", ".ico", ".svg")):
-                urls.add(u)
+            # Strip size suffix to get original quality
+            u = re.sub(r'_\d{2,4}x\d{2,4}\.(jpg|jpeg|png|webp)', r'.\1', u, flags=re.IGNORECASE)
+            if "alicdn.com" not in u:
+                return
+            if u.endswith((".gif", ".ico", ".svg")):
+                return
+            if re.search(r'_\d{1,2}x\d{1,2}\.', u):  # skip tiny icons
+                return
+            if u not in seen:
+                seen.add(u)
+                result.append(u)
 
-        # 3. Extract from img tags
-        soup = BeautifulSoup(html, "html.parser")
-        for img in soup.find_all("img"):
-            src = img.get("src") or img.get("data-src") or img.get("data-lazy-src") or ""
-            if "alicdn.com" in src and not src.endswith((".gif", ".ico", ".svg")):
-                if src.startswith("//"):
-                    src = "https:" + src
-                urls.add(src)
+        # 1. Main product carousel images from named list fields
+        for pattern in [
+            r'"imageList"\s*:\s*\[([^\]]*)\]',
+            r'"subjectImageList"\s*:\s*\[([^\]]*)\]',
+            r'"mainImages"\s*:\s*\[([^\]]*)\]',
+            r'"coverImages"\s*:\s*\[([^\]]*)\]',
+        ]:
+            for m in re.finditer(pattern, html):
+                for u in re.findall(r'"((?:https?:)?//[^"]+)"', m.group(1)):
+                    add(u)
 
-        # Filter small icons / thumbnails — keep images with size hints > 100px
-        filtered = []
-        for u in urls:
-            # Skip very small thumbnails (common pattern: _50x50.jpg)
-            if re.search(r'_\d{1,2}x\d{1,2}\.', u):
+        # Single main/cover image fields
+        for pattern in [
+            r'"mainImage"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"coverImage"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"originalImageURI"\s*:\s*"((?:https?:)?//[^"]+)"',
+            r'"searchImageUrl"\s*:\s*"((?:https?:)?//[^"]+)"',
+        ]:
+            for m in re.finditer(pattern, html):
+                add(m.group(1))
+
+        # 2. SKU variant images (color/size/spec) — inside propValues arrays
+        for pv_m in re.finditer(r'"propValues"\s*:', html):
+            chunk = html[pv_m.start(): pv_m.start() + 8000]
+            bracket_start = chunk.find('[')
+            if bracket_start == -1:
                 continue
-            # Clean up size suffixes to get original quality
-            clean = re.sub(r'\.(\d+x\d+)\.(jpg|jpeg|png|webp)', r'.\2', u)
-            filtered.append(clean)
+            # Match the closing bracket with depth tracking
+            depth = 0
+            end_idx = -1
+            for i, ch in enumerate(chunk[bracket_start:], bracket_start):
+                if ch == '[':
+                    depth += 1
+                elif ch == ']':
+                    depth -= 1
+                    if depth == 0:
+                        end_idx = i
+                        break
+            if end_idx == -1:
+                continue
+            block = chunk[bracket_start: end_idx + 1]
+            for u in re.findall(r'"(?:imageUrl|picUrl|imgUrl)"\s*:\s*"((?:https?:)?//[^"]+)"', block):
+                add(u)
 
-        # Deduplicate after cleaning
-        filtered = list(dict.fromkeys(filtered))
-
-        return {"urls": filtered}
+        return {"urls": result}
     except Exception as e:
         return {"error": str(e)}

@@ -82,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
@@ -248,6 +248,20 @@ async function doBulkImport() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); _timer = setInterval(silentRefresh, 15000) })
-onUnmounted(() => clearInterval(_timer))
+let _bc: BroadcastChannel | null = null
+watch([() => query.page, pageSize], () => {
+  sessionStorage.setItem('pag:products', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+})
+onMounted(() => {
+  const saved = sessionStorage.getItem('pag:products')
+  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  load()
+  _timer = setInterval(silentRefresh, 15000)
+  _bc = new BroadcastChannel('pas_import')
+  _bc.onmessage = (e) => { if (e.data?.type === 'prs_result' && e.data?.ok) load() }
+})
+onUnmounted(() => {
+  clearInterval(_timer)
+  _bc?.close()
+})
 </script>

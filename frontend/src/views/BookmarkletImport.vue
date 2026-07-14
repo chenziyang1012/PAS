@@ -38,6 +38,11 @@ const errorMsg = ref('')
 
 function notifyOpener(ok: boolean, name: string, err: string) {
   try {
+    // Broadcast to all same-origin tabs (e.g. ProductList)
+    const bc = new BroadcastChannel('pas_import')
+    bc.postMessage({ type: 'prs_result', ok, name, err })
+    bc.close()
+    // Also notify the opener tab if available
     if (window.opener) {
       window.opener.postMessage({ type: 'prs_result', ok, name, err }, '*')
       setTimeout(() => { try { window.close() } catch {} }, 500)
