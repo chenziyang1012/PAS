@@ -311,7 +311,7 @@ def get_generated(product_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.post("/{product_id}/generate")
-def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(require_roles("selector", "admin"))):
     """触发生图 body: { template_id: int }"""
     from app.config import settings
     if not settings.OPENAI_API_KEY:

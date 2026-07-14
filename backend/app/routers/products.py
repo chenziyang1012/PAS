@@ -39,7 +39,10 @@ def list_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Product).filter(Product.creator_id == current_user.id)
+    q = db.query(Product).filter(
+        Product.creator_id == current_user.id,
+        Product.special_tag.notin_(["done", "infringe"]),
+    )
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
     if status:

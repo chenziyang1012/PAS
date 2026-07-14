@@ -41,6 +41,8 @@ class Product(Base):
     creator: Mapped[User] = relationship("User", back_populates="products")
     images: Mapped[list["ProductImage"]] = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="product", cascade="all, delete-orphan")
+    materials: Mapped[list["ProductMaterial"]] = relationship("ProductMaterial", back_populates="product", cascade="all, delete-orphan")
+    generated_images: Mapped[list["GeneratedImage"]] = relationship("GeneratedImage", back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductImage(Base):
@@ -79,7 +81,7 @@ class ProductMaterial(Base):
     sort_order: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    product: Mapped[Product] = relationship("Product")
+    product: Mapped[Product] = relationship("Product", back_populates="materials")
 
 
 class GeneratedImage(Base):
@@ -93,7 +95,7 @@ class GeneratedImage(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    product: Mapped[Product] = relationship("Product")
+    product: Mapped[Product] = relationship("Product", back_populates="generated_images")
 
 
 class PromptTemplate(Base):
