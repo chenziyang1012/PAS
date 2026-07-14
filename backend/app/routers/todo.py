@@ -391,36 +391,43 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
         out_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
         os.makedirs(out_dir, exist_ok=True)
 
-        # 生成无logo版
-        _update_gen_status(db, no_logo_id, "generating")
-        try:
-            result = client.images.edit(
-                model="gpt-image-2",
-                image=open(temp_files[0], "rb"),
-                prompt=prompt_text,
-                size="1024x1024",
-                n=1,
-            )
-            # 保存结果
+        def _call_edit(prompt: str) -> bytes:
+            """调用 images.edit，把所有变体图作为参考图传入，返回生成图的原始字节。"""
+            image_files = [open(f, "rb") for f in temp_files]
+            try:
+                result = client.images.edit(
+                    model="gpt-image-2",
+                    image=image_files if len(image_files) > 1 else image_files[0],
+                    prompt=prompt,
+                    size="1024x1024",
+                    n=1,
+                )
+            finally:
+                for fh in image_files:
+                    fh.close()
             img_data = result.data[0]
             if hasattr(img_data, 'b64_json') and img_data.b64_json:
                 import base64
-                img_bytes = base64.b64decode(img_data.b64_json)
+                return base64.b64decode(img_data.b64_json)
             elif hasattr(img_data, 'url') and img_data.url:
-                img_bytes = req.get(img_data.url, timeout=30).content
+                return req.get(img_data.url, timeout=30).content
             else:
                 raise Exception("API未返回图片数据")
 
-            no_logo_path = os.path.join(out_dir, "no_logo.png")
-            with open(no_logo_path, "wb") as f:
+        def _save_and_resize(img_bytes: bytes, path: str):
+            with open(path, "wb") as f:
                 f.write(img_bytes)
-
-            # 用Pillow调整到2000x2000
             from PIL import Image
-            img = Image.open(no_logo_path)
+            img = Image.open(path)
             img = img.resize((2000, 2000), Image.LANCZOS)
-            img.save(no_logo_path)
+            img.save(path)
 
+        # 生成无logo版
+        _update_gen_status(db, no_logo_id, "generating")
+        try:
+            img_bytes = _call_edit(prompt_text)
+            no_logo_path = os.path.join(out_dir, "no_logo.png")
+            _save_and_resize(img_bytes, no_logo_path)
             url_path = f"/uploads/generated/{product_id}/no_logo.png"
             _update_gen_status(db, no_logo_id, "done", url=url_path)
 
@@ -436,31 +443,9 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
         _update_gen_status(db, with_logo_id, "generating")
         try:
             logo_prompt = prompt_text + "\n在主视觉区产品图的左上角放置 'logo' 文字，文字清晰可见。"
-            result = client.images.edit(
-                model="gpt-image-2",
-                image=open(temp_files[0], "rb"),
-                prompt=logo_prompt,
-                size="1024x1024",
-                n=1,
-            )
-            img_data = result.data[0]
-            if hasattr(img_data, 'b64_json') and img_data.b64_json:
-                import base64
-                img_bytes = base64.b64decode(img_data.b64_json)
-            elif hasattr(img_data, 'url') and img_data.url:
-                img_bytes = req.get(img_data.url, timeout=30).content
-            else:
-                raise Exception("API未返回图片数据")
-
+            img_bytes = _call_edit(logo_prompt)
             with_logo_path = os.path.join(out_dir, "with_logo.png")
-            with open(with_logo_path, "wb") as f:
-                f.write(img_bytes)
-
-            from PIL import Image
-            img = Image.open(with_logo_path)
-            img = img.resize((2000, 2000), Image.LANCZOS)
-            img.save(with_logo_path)
-
+            _save_and_resize(img_bytes, with_logo_path)
             url_path = f"/uploads/generated/{product_id}/with_logo.png"
             _update_gen_status(db, with_logo_id, "done", url=url_path)
         except Exception as e:

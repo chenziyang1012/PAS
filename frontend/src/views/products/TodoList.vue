@@ -154,8 +154,9 @@
               <div v-else-if="g.status === 'generating' || g.status === 'pending'" style="width:200px;height:200px;border-radius:4px;background:linear-gradient(270deg,#409EFF,#67C23A,#E6A23C,#409EFF);background-size:600% 600%;animation:genAnim 2s ease infinite;display:flex;align-items:center;justify-content:center;color:#fff">
                 生成中...
               </div>
-              <div v-else-if="g.status === 'failed'" style="width:200px;height:200px;border-radius:4px;background:#fef0f0;display:flex;align-items:center;justify-content:center;color:#F56C6C;font-size:13px;padding:8px;text-align:center">
-                {{ isModelError(g.error) ? '无法调用模型' : '生成失败' }}
+              <div v-else-if="g.status === 'failed'" style="width:200px;height:200px;border-radius:4px;background:#fef0f0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#F56C6C;font-size:12px;padding:8px;text-align:center;gap:6px">
+                <span style="font-size:13px;font-weight:bold">生成失败</span>
+                <span v-if="g.error" style="color:#909399;font-size:11px;word-break:break-all;max-height:120px;overflow-y:auto">{{ g.error }}</span>
               </div>
             </div>
           </div>
