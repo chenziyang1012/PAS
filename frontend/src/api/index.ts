@@ -49,6 +49,7 @@ export const productApi = {
   fromBookmarklet: (data: object) => http.post('/api/products/from-bookmarklet', data),
   listDone: (params?: object) => http.get('/api/products/done', { params }),
   listInfringe: (params?: object) => http.get('/api/products/infringe', { params }),
+  listOther: (params?: object) => http.get('/api/products/other', { params }),
   getCookie1688: () => http.get('/api/products/settings/cookie-1688'),
   setCookie1688: (cookie_1688: string) => http.put('/api/products/settings/cookie-1688', { cookie_1688 }),
   getMyCookie1688: () => http.get('/api/products/my-cookie-1688'),

@@ -31,6 +31,19 @@ def _migrate():
 
 _migrate()
 
+def _migrate_other_tag():
+    """将历史驳回类型为 other 的产品补打 special_tag='other'。"""
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "UPDATE products SET special_tag='other' WHERE status='rejected' AND special_tag IS NULL"
+            ))
+            conn.commit()
+        except Exception:
+            pass
+
+_migrate_other_tag()
+
 def _cleanup_stale_pending():
     """Mark any pending/generating generated_images as failed on startup — they belong to threads that died with a previous process."""
     from app.database import SessionLocal

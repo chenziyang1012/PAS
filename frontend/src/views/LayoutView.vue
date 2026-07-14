@@ -9,6 +9,7 @@
         <el-menu-item v-if="auth.user?.role !== 'reviewer'" index="/todo"><el-icon><List /></el-icon>待做列表</el-menu-item>
         <el-menu-item index="/done"><el-icon><Finished /></el-icon>已做产品</el-menu-item>
         <el-menu-item index="/infringe"><el-icon><Warning /></el-icon>侵权产品</el-menu-item>
+        <el-menu-item index="/other"><el-icon><Document /></el-icon>其他产品</el-menu-item>
         <el-menu-item v-if="auth.user?.role === 'admin'" index="/users"><el-icon><User /></el-icon>用户管理</el-menu-item>
         <el-menu-item index="/settings"><el-icon><Setting /></el-icon>系统设置</el-menu-item>
       </el-menu>
@@ -26,7 +27,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { House, Goods, Check, User, Finished, Warning, Setting, List } from '@element-plus/icons-vue'
+import { House, Goods, Check, User, Finished, Warning, Setting, List, Document } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()

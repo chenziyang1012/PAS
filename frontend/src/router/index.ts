@@ -23,6 +23,7 @@ const router = createRouter({
         { path: 'todo', component: () => import('@/views/products/TodoList.vue'), meta: { roles: ['selector', 'admin'] } },
         { path: 'done', component: () => import('@/views/products/DoneList.vue') },
         { path: 'infringe', component: () => import('@/views/products/InfringeList.vue') },
+        { path: 'other', component: () => import('@/views/products/OtherList.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

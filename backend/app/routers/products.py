@@ -44,7 +44,7 @@ def list_products(
 ):
     q = db.query(Product).filter(
         Product.creator_id == current_user.id,
-        or_(Product.special_tag.is_(None), Product.special_tag.notin_(["done", "infringe"])),
+        or_(Product.special_tag.is_(None), Product.special_tag.notin_(["done", "infringe", "other"])),
     )
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
@@ -94,6 +94,29 @@ def list_infringe(
     current_user: User = Depends(get_current_user),
 ):
     q = db.query(Product).filter(Product.special_tag == "infringe")
+    if keyword:
+        q = q.filter(Product.product_name.contains(keyword))
+    if creator_username:
+        q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
+    if date_from:
+        q = q.filter(func.date(Product.updated_at) >= date_from)
+    if date_to:
+        q = q.filter(func.date(Product.updated_at) <= date_to)
+    total = q.count()
+    items = q.order_by(Product.updated_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return Resp(data={"total": total, "items": [ProductOut.model_validate(p) for p in items]})
+
+@router.get("/other")
+def list_other(
+    page: int = 1, page_size: int = 20,
+    keyword: str | None = None,
+    creator_username: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = db.query(Product).filter(Product.special_tag == "other")
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
     if creator_username:
