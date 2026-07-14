@@ -82,12 +82,10 @@ def bulk_create_todo(
         url = url.strip()
         if not url:
             continue
-        info = scrape_product(url, current_user.cookie_1688)
+        # 批量导入不爬取，直接用链接创建，避免同步爬取导致超时
         product = Product(
-            product_name=info.get("title") or url,
+            product_name=url,
             product_link=url,
-            main_image=info.get("image"),
-            manufacturer=info.get("manufacturer"),
             status="approved",
             special_tag=None,
             is_completed=False,
