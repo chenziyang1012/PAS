@@ -408,7 +408,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             image_files = [open(f, "rb") for f in temp_files]
             try:
                 result = client.images.edit(
-                    model="gpt-image-1",
+                    model="gpt-image-2",
                     image=image_files if len(image_files) > 1 else image_files[0],
                     prompt=prompt,
                     size="1024x1024",
