@@ -292,6 +292,18 @@ def delete_template(template_id: int, db: Session = Depends(get_db), current_use
 @router.get("/{product_id}/generated")
 def get_generated(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     images = db.query(GeneratedImage).filter(GeneratedImage.product_id == product_id).all()
+    # 超过 10 分钟还在 pending/generating 的记录，直接判为失败（后台线程已挂死）
+    now = datetime.now(timezone.utc)
+    changed = False
+    for g in images:
+        if g.status in ("pending", "generating"):
+            created = g.created_at.replace(tzinfo=timezone.utc) if g.created_at.tzinfo is None else g.created_at
+            if (now - created).total_seconds() > 600:
+                g.status = "failed"
+                g.error = "生成超时（超过10分钟无响应）"
+                changed = True
+    if changed:
+        db.commit()
     return Resp(data=[{
         "id": g.id, "has_logo": g.has_logo, "status": g.status,
         "url": g.url, "error": g.error,
@@ -358,7 +370,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
     db = SessionLocal()
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=120.0)
 
         # 下载素材图片，统一转为 RGBA PNG（images.edit 要求真正的 PNG 格式）
         import tempfile, io
