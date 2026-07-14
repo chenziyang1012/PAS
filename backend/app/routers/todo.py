@@ -456,7 +456,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
         # 生成有logo版
         _update_gen_status(db, with_logo_id, "generating")
         try:
-            logo_prompt = prompt_text + "\n在主视觉区产品图的左上角放置 'logo' 文字，文字清晰可见。"
+            logo_prompt = prompt_text + "\n在产品主体的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。"
             img_bytes = _call_edit(logo_prompt)
             with_logo_path = os.path.join(out_dir, "with_logo.png")
             _save_and_resize(img_bytes, with_logo_path)
