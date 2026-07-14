@@ -409,7 +409,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             try:
                 result = client.images.edit(
                     model="gpt-image-2",
-                    image=image_files if len(image_files) > 1 else image_files[0],
+                    image=image_files[0],
                     prompt=prompt,
                     size="1024x1024",
                     n=1,
