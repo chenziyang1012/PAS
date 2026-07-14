@@ -400,23 +400,43 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             _update_gen_status(db, with_logo_id, "failed", error="无法下载素材图片")
             return
 
+        # 多张参考图拼合成一张网格图，API 只接受单张输入
+        import math, tempfile as _tmpmod
+        def _make_composite(paths: list[str]) -> str:
+            if len(paths) == 1:
+                return paths[0]
+            imgs = [PilImage.open(p).convert("RGBA") for p in paths]
+            cols = math.ceil(math.sqrt(len(imgs)))
+            rows = math.ceil(len(imgs) / cols)
+            cell = 512
+            canvas = PilImage.new("RGBA", (cols * cell, rows * cell), (255, 255, 255, 0))
+            for i, img in enumerate(imgs):
+                r, c = divmod(i, cols)
+                canvas.paste(img.resize((cell, cell), PilImage.LANCZOS), (c * cell, r * cell))
+            canvas = canvas.resize((1024, 1024), PilImage.LANCZOS)
+            tmp = _tmpmod.NamedTemporaryFile(suffix=".png", delete=False)
+            canvas.save(tmp.name, "PNG")
+            tmp.close()
+            return tmp.name
+
+        composite_path = _make_composite(temp_files)
+        # composite_path 是临时文件，生成完清理
+        if composite_path not in temp_files:
+            temp_files.append(composite_path)
+
         out_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
         os.makedirs(out_dir, exist_ok=True)
 
         def _call_edit(prompt: str) -> bytes:
-            """调用 images.edit，把所有变体图作为参考图传入，返回生成图的原始字节。"""
-            image_files = [open(f, "rb") for f in temp_files]
-            try:
+            """调用 images.edit，传入拼合后的参考图。"""
+            with open(composite_path, "rb") as fh:
                 result = client.images.edit(
                     model="gpt-image-2",
-                    image=image_files[0],
+                    image=fh,
                     prompt=prompt,
                     size="1024x1024",
                     n=1,
                 )
-            finally:
-                for fh in image_files:
-                    fh.close()
             img_data = result.data[0]
             if hasattr(img_data, 'b64_json') and img_data.b64_json:
                 import base64
