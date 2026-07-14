@@ -365,7 +365,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
     """后台生图线程"""
     from app.database import SessionLocal
     from app.config import settings
-    import os, requests as req
+    import os, httpx as req
 
     db = SessionLocal()
     try:
