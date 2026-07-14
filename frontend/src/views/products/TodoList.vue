@@ -419,15 +419,33 @@ async function openImageGen(row: any) {
   genLoading.value = true
   scrapedImages.value = []
   genResults.value = []
+
+  // 优先从 cache 恢复，如果没有 cache 则初始化为空
   slots.variant = slotsCache.has(row.id)
     ? [...slotsCache.get(row.id)!]
     : ['', '', '', '', '', '', '']
+
   try {
     // 加载已有素材
     const matRes: any = await todoApi.getMaterials(row.id)
     if (matRes.data?.length) {
       scrapedImages.value = matRes.data.map((m: any) => ({ url: m.url, type: m.type, id: m.id }))
+
+      // 如果没有 cache，从后端素材恢复变体框（按 sort_order 排序）
+      if (!slotsCache.has(row.id)) {
+        const variantMaterials = matRes.data.filter((m: any) => m.type === 'variant').sort((a: any, b: any) => a.sort_order - b.sort_order)
+        if (variantMaterials.length > 0) {
+          // 确保变体框数组足够大
+          const maxIndex = Math.max(...variantMaterials.map((m: any) => m.sort_order))
+          slots.variant = Array(Math.max(maxIndex + 1, 7)).fill('')
+          // 填充素材
+          variantMaterials.forEach((m: any) => {
+            slots.variant[m.sort_order] = m.url
+          })
+        }
+      }
     }
+
     // 加载生成结果
     const genRes: any = await todoApi.getGenerated(row.id)
     genResults.value = genRes.data || []
