@@ -13,6 +13,9 @@ from app.schemas import (
 from app.auth import get_current_user, require_roles
 from app.scraper import scrape_product
 
+from sqlalchemy import or_
+
+
 router = APIRouter(prefix="/api/products", tags=["products"])
 
 def _check_product_access(product: Product, user: User):
@@ -41,7 +44,7 @@ def list_products(
 ):
     q = db.query(Product).filter(
         Product.creator_id == current_user.id,
-        Product.special_tag.notin_(["done", "infringe"]),
+        or_(Product.special_tag.is_(None), Product.special_tag.notin_(["done", "infringe"])),
     )
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
