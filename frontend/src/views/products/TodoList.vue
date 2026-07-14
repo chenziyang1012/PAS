@@ -316,9 +316,9 @@ async function load() {
   } finally { loading.value = false }
 }
 
-async function silentRefresh() {
-  // 有对话框打开时跳过，不打断用户操作
-  if (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value) return
+async function silentRefresh(force = false) {
+  // 有对话框打开时跳过，不打断用户操作（除非强制刷新）
+  if (!force && (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value)) return
   try {
     const res: any = await todoApi.list({ ...query, page_size: pageSize.value })
     // 数据没变化就不替换，避免不必要的重渲染和闪屏
@@ -528,7 +528,7 @@ function pollGenStatus() {
     if (allDone && pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
-      load() // 刷新列表更新主图缩略图
+      silentRefresh(true) // 强制静默刷新列表，更新主图缩略图和失败状态
       // 根据结果给出提示
       const hasDone = genResults.value.some((g: any) => g.status === 'done')
       const allFailed = genResults.value.every((g: any) => g.status === 'failed')
