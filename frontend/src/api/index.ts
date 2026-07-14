@@ -84,6 +84,7 @@ export const todoApi = {
   addMaterial: (id: number, data: object) => http.post(`/api/todo/${id}/materials`, data),
   deleteMaterial: (id: number, mid: number) => http.delete(`/api/todo/${id}/materials/${mid}`),
   batchUpdateMaterials: (id: number, items: object[]) => http.put(`/api/todo/${id}/materials/batch`, { items }),
+  saveSlots: (id: number, slots: string[]) => http.put(`/api/todo/${id}/slots`, { slots }),
   scrapeMaterials: (id: number) => http.post(`/api/todo/${id}/scrape-materials`),
   // 生成图
   getGenerated: (id: number) => http.get(`/api/todo/${id}/generated`),
@@ -96,5 +97,5 @@ export const todoApi = {
   // OpenAI 配置
   getOpenaiSettings: () => http.get('/api/todo/settings/openai'),
   setOpenaiSettings: (data: object) => http.put('/api/todo/settings/openai', data),
-  testOpenaiConnection: () => http.post('/api/todo/settings/openai/test'),
+  testOpenaiConnection: (data?: object) => http.post('/api/todo/settings/openai/test', data),
 }

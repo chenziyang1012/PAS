@@ -1,6 +1,6 @@
 """待做列表 — 审核通过的产品自动出现；支持批量导入、素材爬取、生图、标记完成。"""
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
@@ -190,6 +190,21 @@ def batch_update_materials(product_id: int, body: dict, db: Session = Depends(ge
     return Resp()
 
 
+@router.put("/{product_id}/slots")
+def save_slots(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """原子保存变体槽位分配。body: { slots: [url_or_empty_string, ...] }"""
+    db.query(ProductMaterial).filter(
+        ProductMaterial.product_id == product_id,
+        ProductMaterial.type == "variant"
+    ).delete()
+    for i, url in enumerate(body.get("slots", [])):
+        if url:
+            m = ProductMaterial(product_id=product_id, type="variant", url=url, sort_order=i)
+            db.add(m)
+    db.commit()
+    return Resp()
+
+
 # ---- 素材爬取 ----
 
 @router.post("/{product_id}/scrape-materials")
@@ -206,13 +221,16 @@ def scrape_materials(product_id: int, db: Session = Depends(get_db), current_use
     if "error" in images:
         raise HTTPException(status_code=400, detail=images["error"])
 
-    # 清除旧素材
-    db.query(ProductMaterial).filter(ProductMaterial.product_id == product_id).delete()
+    # 清除旧爬取素材（保留用户手动分配的 variant 槽位）
+    db.query(ProductMaterial).filter(
+        ProductMaterial.product_id == product_id,
+        ProductMaterial.type == "scraped"
+    ).delete()
 
     # 保存新素材
     saved = []
     for i, url in enumerate(images.get("urls", [])):
-        m = ProductMaterial(product_id=product_id, type="variant", url=url, sort_order=i)
+        m = ProductMaterial(product_id=product_id, type="scraped", url=url, sort_order=i)
         db.add(m)
         saved.append(url)
     db.commit()
@@ -291,9 +309,12 @@ def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), 
     if not product:
         raise HTTPException(status_code=404, detail="产品不存在")
 
-    materials = db.query(ProductMaterial).filter(ProductMaterial.product_id == product_id).order_by(ProductMaterial.sort_order).all()
+    materials = db.query(ProductMaterial).filter(
+        ProductMaterial.product_id == product_id,
+        ProductMaterial.type == "variant"
+    ).order_by(ProductMaterial.sort_order).all()
     if not materials:
-        raise HTTPException(status_code=400, detail="请先爬取并选择素材图片")
+        raise HTTPException(status_code=400, detail="请先将素材拖入变体框")
 
     # 获取提示词模板
     template_id = body.get("template_id")
@@ -377,7 +398,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                 model="gpt-image-2",
                 image=open(temp_files[0], "rb"),
                 prompt=prompt_text,
-                size="2048x2048",
+                size="1024x1024",
                 n=1,
             )
             # 保存结果
@@ -419,7 +440,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                 model="gpt-image-2",
                 image=open(temp_files[0], "rb"),
                 prompt=logo_prompt,
-                size="2048x2048",
+                size="1024x1024",
                 n=1,
             )
             img_data = result.data[0]
@@ -515,16 +536,20 @@ def set_openai_settings(body: dict, current_user: User = Depends(require_roles("
 
 
 @router.post("/settings/openai/test")
-def test_openai_connection(current_user: User = Depends(require_roles("admin"))):
-    """测试 OpenAI API 连接是否正常，返回 ok/error。"""
+def test_openai_connection(body: dict = Body(default={}), current_user: User = Depends(require_roles("admin"))):
+    """测试 OpenAI API 连接是否正常，返回 ok/error。支持传入 api_key/base_url 临时测试而不保存。"""
     from app.config import settings
-    if not settings.OPENAI_API_KEY:
+    api_key = body.get("api_key") or settings.OPENAI_API_KEY
+    base_url = body.get("base_url") or settings.OPENAI_BASE_URL
+    if not api_key:
         return Resp(data={"ok": False, "msg": "未配置 API Key"})
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=10)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=10)
         models = client.models.list()
-        names = [m.id for m in (models.data or [])[:5]]
-        return Resp(data={"ok": True, "msg": f"连接成功，可用模型: {', '.join(names) or '(无列表)'}"})
+        all_ids = [m.id for m in (models.data or [])]
+        image_models = [m for m in all_ids if 'image' in m.lower() or 'dall' in m.lower()]
+        display = (image_models[:5] if image_models else all_ids[:5])
+        return Resp(data={"ok": True, "msg": f"连接成功，图像模型: {', '.join(image_models[:5]) or '无'} | 共 {len(all_ids)} 个模型"})
     except Exception as e:
         return Resp(data={"ok": False, "msg": f"连接失败: {str(e)[:200]}"})

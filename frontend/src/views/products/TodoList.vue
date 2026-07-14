@@ -407,9 +407,12 @@ function previewUrl(url: string) {
 }
 
 // 生图弹窗
-function saveSlotCache() {
+async function saveSlotCache() {
   if (genProduct.value?.id != null) {
     slotsCache.set(genProduct.value.id, [...slots.variant])
+    try {
+      await todoApi.saveSlots(genProduct.value.id, slots.variant)
+    } catch {}
   }
 }
 
@@ -419,37 +422,31 @@ async function openImageGen(row: any) {
   genLoading.value = true
   scrapedImages.value = []
   genResults.value = []
-
-  // 优先从 cache 恢复，如果没有 cache 则初始化为空
   slots.variant = slotsCache.has(row.id)
     ? [...slotsCache.get(row.id)!]
     : ['', '', '', '', '', '', '']
 
   try {
-    // 加载已有素材
     const matRes: any = await todoApi.getMaterials(row.id)
     if (matRes.data?.length) {
-      scrapedImages.value = matRes.data.map((m: any) => ({ url: m.url, type: m.type, id: m.id }))
+      // 素材池只显示爬取的图片
+      scrapedImages.value = matRes.data.filter((m: any) => m.type === 'scraped').map((m: any) => ({ url: m.url, id: m.id }))
 
-      // 如果没有 cache，从后端素材恢复变体框（按 sort_order 排序）
+      // 没有内存缓存时，从后端恢复变体槽位
       if (!slotsCache.has(row.id)) {
-        const variantMaterials = matRes.data.filter((m: any) => m.type === 'variant').sort((a: any, b: any) => a.sort_order - b.sort_order)
-        if (variantMaterials.length > 0) {
-          // 确保变体框数组足够大
-          const maxIndex = Math.max(...variantMaterials.map((m: any) => m.sort_order))
-          slots.variant = Array(Math.max(maxIndex + 1, 7)).fill('')
-          // 填充素材
-          variantMaterials.forEach((m: any) => {
-            slots.variant[m.sort_order] = m.url
-          })
+        const variantMats = matRes.data
+          .filter((m: any) => m.type === 'variant')
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        if (variantMats.length > 0) {
+          const maxIdx = Math.max(...variantMats.map((m: any) => m.sort_order))
+          slots.variant = Array(Math.max(maxIdx + 1, 7)).fill('')
+          variantMats.forEach((m: any) => { slots.variant[m.sort_order] = m.url })
         }
       }
     }
 
-    // 加载生成结果
     const genRes: any = await todoApi.getGenerated(row.id)
     genResults.value = genRes.data || []
-    // 加载模板
     await loadTemplates()
   } finally { genLoading.value = false }
 }
@@ -493,15 +490,10 @@ async function doGenerate() {
   if (!selectedTemplateId.value) return ElMessage.warning('请选择提示词模板')
   if (!genProduct.value) return
 
-  // 保存素材分配
-  const items: any[] = []
-  slots.variant.filter(Boolean).forEach((url, i) => items.push({ url, type: 'variant', sort_order: i }))
+  if (!slots.variant.some(Boolean)) return ElMessage.warning('请至少拖入一张素材')
 
-  if (!items.length) return ElMessage.warning('请至少拖入一张素材')
-
-  for (const item of items) {
-    await todoApi.addMaterial(genProduct.value.id, item)
-  }
+  // 先保存当前槽位到后端，再生图
+  await saveSlotCache()
 
   generating.value = true
   try {
