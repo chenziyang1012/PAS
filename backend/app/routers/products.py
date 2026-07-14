@@ -44,6 +44,7 @@ def list_products(
 ):
     q = db.query(Product).filter(
         Product.creator_id == current_user.id,
+        Product.status != "approved",
         or_(Product.special_tag.is_(None), Product.special_tag.notin_(["done", "infringe", "other"])),
     )
     if keyword:
