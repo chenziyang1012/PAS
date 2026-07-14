@@ -20,7 +20,7 @@ def list_pending(
     if creator_id:
         q = q.filter(Product.creator_id == creator_id)
     total = q.count()
-    items = q.order_by(Product.submit_time.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Product.submit_time.desc(), Product.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
     from app.schemas import ProductOut
     return Resp(data={"total": total, "items": [ProductOut.model_validate(p) for p in items]})
 
