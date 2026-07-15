@@ -338,6 +338,13 @@ def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), 
     else:
         raise HTTPException(status_code=400, detail="请选择提示词模板")
 
+    logo_template_id = body.get("logo_template_id")
+    logo_prompt_text = None
+    if logo_template_id:
+        logo_template = db.get(PromptTemplate, logo_template_id)
+        if logo_template:
+            logo_prompt_text = logo_template.content
+
     mode = body.get("mode") or "both"
     if mode not in ("both", "no_logo", "with_logo"):
         raise HTTPException(status_code=400, detail="mode 参数不合法")
@@ -369,14 +376,14 @@ def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), 
     import threading
     threading.Thread(
         target=_do_generate,
-        args=(product_id, no_logo_id, with_logo_id, prompt_text, [m.url for m in materials]),
+        args=(product_id, no_logo_id, with_logo_id, prompt_text, logo_prompt_text, [m.url for m in materials]),
         daemon=True,
     ).start()
 
     return Resp(data={"no_logo_id": no_logo_id, "with_logo_id": with_logo_id})
 
 
-def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | None, prompt_text: str, material_urls: list[str]):
+def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | None, prompt_text: str, logo_prompt_text: str | None, material_urls: list[str]):
     """后台生图线程。no_logo_id / with_logo_id 为 None 表示跳过该版本。"""
     from app.database import SessionLocal
     from app.config import settings
@@ -482,46 +489,40 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             except Exception as e:
                 _update_gen_status(db, no_logo_id, "failed", error=str(e))
 
-        # 第二步：Pillow 叠加 logo 文字（与无 logo 版构图完全一致）
+        _DEFAULT_LOGO_PROMPT = (
+            "以此图为参考，仅在左上角主视觉区的产品上，于合适位置印上\"logo\"文字，"
+            "如同品牌标志印刻或丝印在产品表面，与产品材质、光影融为一体，自然真实。"
+            "画面其他区域（变体缩略图、场景图、背景）完全保持与参考图一致，不做任何改动。"
+        )
+        logo_prompt = logo_prompt_text or _DEFAULT_LOGO_PROMPT
+
+        # 第二步：以无 logo 图为参考，AI 叠加 logo
         if with_logo_id is not None:
             _update_gen_status(db, with_logo_id, "generating")
+            ref_tmp_path = None
             try:
-                if not os.path.exists(no_logo_path):
-                    raise Exception("无 logo 版不存在，请先生成无 logo 版")
-                from PIL import ImageDraw, ImageFont
-                base_img = PilImage.open(no_logo_path).convert("RGBA")
-                iw, ih = base_img.size
-                txt_layer = PilImage.new("RGBA", base_img.size, (0, 0, 0, 0))
-                draw = ImageDraw.Draw(txt_layer)
-                font_size = max(40, int(iw * 0.05))
-                font = None
-                for fp in [
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                    "/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf",
-                    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-                    "C:/Windows/Fonts/arialbd.ttf",
-                ]:
-                    if os.path.exists(fp):
-                        try:
-                            font = ImageFont.truetype(fp, font_size)
-                            break
-                        except Exception:
-                            continue
-                if font is None:
-                    font = ImageFont.load_default()
-                tx = int(iw * 0.12)
-                ty = int(ih * 0.10)
-                shadow = max(2, int(font_size * 0.05))
-                draw.text((tx + shadow, ty + shadow), "logo", font=font, fill=(0, 0, 0, 100))
-                draw.text((tx, ty), "logo", font=font, fill=(255, 255, 255, 200))
-                with_logo_img = PilImage.alpha_composite(base_img, txt_layer).convert("RGB")
+                if os.path.exists(no_logo_path):
+                    ref_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                    ref_img = PilImage.open(no_logo_path).convert("RGBA").resize((1024, 1024), PilImage.LANCZOS)
+                    ref_img.save(ref_tmp.name, "PNG")
+                    ref_tmp.close()
+                    ref_tmp_path = ref_tmp.name
+                    ref_files = [ref_tmp_path]
+                else:
+                    ref_files = temp_files
+                img_bytes = _call_edit(logo_prompt, ref_files)
                 with_logo_path = os.path.join(out_dir, "with_logo.png")
-                with_logo_img.save(with_logo_path, "PNG")
+                _save_and_resize(img_bytes, with_logo_path)
                 url_path = f"/uploads/generated/{product_id}/with_logo.png"
                 _update_gen_status(db, with_logo_id, "done", url=url_path)
             except Exception as e:
                 _update_gen_status(db, with_logo_id, "failed", error=str(e))
+            finally:
+                if ref_tmp_path:
+                    try:
+                        os.unlink(ref_tmp_path)
+                    except Exception:
+                        pass
 
         # 清理临时文件
         for f in temp_files:

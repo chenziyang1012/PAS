@@ -89,7 +89,7 @@ export const todoApi = {
   scrapeMaterials: (id: number) => http.post(`/api/todo/${id}/scrape-materials`),
   // 生成图
   getGenerated: (id: number) => http.get(`/api/todo/${id}/generated`),
-  generate: (id: number, template_id: number, mode: string = 'both') => http.post(`/api/todo/${id}/generate`, { template_id, mode }),
+  generate: (id: number, template_id: number, mode: string = 'both', logo_template_id?: number) => http.post(`/api/todo/${id}/generate`, { template_id, mode, logo_template_id }),
   // 提示词模板
   listTemplates: () => http.get('/api/todo/templates'),
   createTemplate: (data: object) => http.post('/api/todo/templates', data),

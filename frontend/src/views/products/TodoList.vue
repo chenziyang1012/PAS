@@ -134,10 +134,21 @@
         <!-- 提示词模板 -->
         <div style="margin-bottom:16px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:bold">提示词模板</span>
+            <span style="font-size:13px;font-weight:bold">无Logo提示词</span>
             <el-button size="small" text @click="templateDialogVisible=true">管理模板</el-button>
           </div>
           <el-select v-model="selectedTemplateId" placeholder="选择提示词模板" style="width:100%">
+            <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
+        </div>
+
+        <!-- 有Logo提示词模板 -->
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:bold">有Logo提示词</span>
+            <span style="font-size:12px;color:#909399">不选则使用默认</span>
+          </div>
+          <el-select v-model="selectedLogoTemplateId" placeholder="选择Logo提示词模板（不选用默认）" style="width:100%" clearable>
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </div>
@@ -261,6 +272,7 @@ const genResults = ref<any[]>([])
 // 重新生成时保留的旧图 url，key: no_logo / with_logo
 const prevUrls = reactive<{ no_logo: string; with_logo: string }>({ no_logo: '', with_logo: '' })
 const selectedTemplateId = ref<number | null>(null)
+const selectedLogoTemplateId = ref<number | null>(null)
 const slots = reactive({
   main: ['', ''] as string[],
   scene: [''] as string[],
@@ -436,6 +448,7 @@ async function openImageGen(row: any) {
   genResults.value = []
   prevUrls.no_logo = ''
   prevUrls.with_logo = ''
+  selectedLogoTemplateId.value = null
   slots.variant = slotsCache.has(row.id)
     ? [...slotsCache.get(row.id)!]
     : ['', '', '', '', '', '', '']
@@ -514,7 +527,7 @@ async function doGenerate() {
   prevUrls.with_logo = genResults.value.find((g: any) => g.has_logo && g.status === 'done')?.url || ''
   generating.value = true
   try {
-    await todoApi.generate(genProduct.value.id, selectedTemplateId.value)
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, 'both', selectedLogoTemplateId.value ?? undefined)
     pollGenStatus()
   } catch (e: any) {
     const msg = typeof e === 'string' ? e : ''
@@ -539,7 +552,7 @@ async function regenerate(mode: 'no_logo' | 'with_logo') {
   prevUrls[mode] = old?.status === 'done' && old?.url ? old.url : ''
 
   try {
-    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode)
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode, selectedLogoTemplateId.value ?? undefined)
     pollGenStatus()
   } catch (e: any) {
     prevUrls[mode] = ''
