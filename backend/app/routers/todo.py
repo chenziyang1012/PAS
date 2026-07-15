@@ -463,13 +463,6 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             img = img.resize((2000, 2000), Image.LANCZOS)
             img.save(path)
 
-        logo_prompt = (
-            prompt_text
-            + "\n只在图片左上角面积最大的那一个产品图像上印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，"
-            "与产品融为一体，自然真实。其他所有缩略图、小图、变体图、场景图，一律不加任何文字或 logo，"
-            "完全保持原样不变。"
-        )
-
         no_logo_path = os.path.join(out_dir, "no_logo.png")
         no_logo_generated = False
 
@@ -489,34 +482,46 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             except Exception as e:
                 _update_gen_status(db, no_logo_id, "failed", error=str(e))
 
-        # 第二步：以无 logo 图为参考生成有 logo 版（主体完全一致）
+        # 第二步：Pillow 叠加 logo 文字（与无 logo 版构图完全一致）
         if with_logo_id is not None:
             _update_gen_status(db, with_logo_id, "generating")
-            ref_tmp_path = None
             try:
-                if no_logo_generated and os.path.exists(no_logo_path):
-                    # 将 2000×2000 成品缩回 1024 供 API 使用
-                    ref_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                    ref_img = PilImage.open(no_logo_path).convert("RGBA").resize((1024, 1024), PilImage.LANCZOS)
-                    ref_img.save(ref_tmp.name, "PNG")
-                    ref_tmp.close()
-                    ref_tmp_path = ref_tmp.name
-                    ref_files = [ref_tmp_path]
-                else:
-                    ref_files = temp_files
-                img_bytes = _call_edit(logo_prompt, ref_files)
+                if not os.path.exists(no_logo_path):
+                    raise Exception("无 logo 版不存在，请先生成无 logo 版")
+                from PIL import ImageDraw, ImageFont
+                base_img = PilImage.open(no_logo_path).convert("RGBA")
+                iw, ih = base_img.size
+                txt_layer = PilImage.new("RGBA", base_img.size, (0, 0, 0, 0))
+                draw = ImageDraw.Draw(txt_layer)
+                font_size = max(40, int(iw * 0.05))
+                font = None
+                for fp in [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                    "/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf",
+                    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+                    "C:/Windows/Fonts/arialbd.ttf",
+                ]:
+                    if os.path.exists(fp):
+                        try:
+                            font = ImageFont.truetype(fp, font_size)
+                            break
+                        except Exception:
+                            continue
+                if font is None:
+                    font = ImageFont.load_default()
+                tx = int(iw * 0.12)
+                ty = int(ih * 0.10)
+                shadow = max(2, int(font_size * 0.05))
+                draw.text((tx + shadow, ty + shadow), "logo", font=font, fill=(0, 0, 0, 100))
+                draw.text((tx, ty), "logo", font=font, fill=(255, 255, 255, 200))
+                with_logo_img = PilImage.alpha_composite(base_img, txt_layer).convert("RGB")
                 with_logo_path = os.path.join(out_dir, "with_logo.png")
-                _save_and_resize(img_bytes, with_logo_path)
+                with_logo_img.save(with_logo_path, "PNG")
                 url_path = f"/uploads/generated/{product_id}/with_logo.png"
                 _update_gen_status(db, with_logo_id, "done", url=url_path)
             except Exception as e:
                 _update_gen_status(db, with_logo_id, "failed", error=str(e))
-            finally:
-                if ref_tmp_path:
-                    try:
-                        os.unlink(ref_tmp_path)
-                    except Exception:
-                        pass
 
         # 清理临时文件
         for f in temp_files:
