@@ -619,7 +619,14 @@ watch(genVisible, (newVal, oldVal) => {
 })
 
 let _timer: ReturnType<typeof setInterval>
-onMounted(() => { load(); _timer = setInterval(silentRefresh, 15000) })
+watch([() => query.page, pageSize], () => {
+  sessionStorage.setItem('pag:todo', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+})
+onMounted(() => {
+  const saved = sessionStorage.getItem('pag:todo')
+  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  load(); _timer = setInterval(silentRefresh, 15000)
+})
 onUnmounted(() => { clearInterval(_timer); if (pollTimer) clearInterval(pollTimer) })
 </script>
 
