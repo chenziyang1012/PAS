@@ -151,6 +151,13 @@
               <div v-if="g.status === 'done'" style="cursor:pointer" @click="previewGenImage(g)">
                 <img :src="g.url" style="width:200px;height:200px;object-fit:cover;border-radius:4px" />
               </div>
+              <div v-else-if="(g.status === 'generating' || g.status === 'pending') && prevUrls[g.has_logo ? 'with_logo' : 'no_logo']"
+                   style="position:relative;width:200px;height:200px;cursor:pointer" @click="previewUrl(prevUrls[g.has_logo ? 'with_logo' : 'no_logo'])">
+                <img :src="prevUrls[g.has_logo ? 'with_logo' : 'no_logo']" style="width:200px;height:200px;object-fit:cover;border-radius:4px" />
+                <div style="position:absolute;left:0;right:0;bottom:50%;transform:translateY(100%);padding:6px 0;background:rgba(0,0,0,0.55);color:#fff;font-size:12px;border-radius:0">
+                  正在重新生成...
+                </div>
+              </div>
               <div v-else-if="g.status === 'generating' || g.status === 'pending'" style="width:200px;height:200px;border-radius:4px;background:linear-gradient(270deg,#409EFF,#67C23A,#E6A23C,#409EFF);background-size:600% 600%;animation:genAnim 2s ease infinite;display:flex;align-items:center;justify-content:center;color:#fff">
                 生成中...
               </div>
@@ -158,6 +165,8 @@
                 <span style="font-size:13px;font-weight:bold">生成失败</span>
                 <span v-if="g.error" style="color:#909399;font-size:11px;word-break:break-all;max-height:120px;overflow-y:auto">{{ g.error }}</span>
               </div>
+              <el-button size="small" style="margin-top:6px" :disabled="g.status === 'generating' || g.status === 'pending'"
+                @click="regenerate(g.has_logo ? 'with_logo' : 'no_logo')">重新生成</el-button>
             </div>
           </div>
         </div>
@@ -249,6 +258,8 @@ const scraping = ref(false)
 const generating = ref(false)
 const scrapedImages = ref<any[]>([])
 const genResults = ref<any[]>([])
+// 重新生成时保留的旧图 url，key: no_logo / with_logo
+const prevUrls = reactive<{ no_logo: string; with_logo: string }>({ no_logo: '', with_logo: '' })
 const selectedTemplateId = ref<number | null>(null)
 const slots = reactive({
   main: ['', ''] as string[],
@@ -423,6 +434,8 @@ async function openImageGen(row: any) {
   genLoading.value = true
   scrapedImages.value = []
   genResults.value = []
+  prevUrls.no_logo = ''
+  prevUrls.with_logo = ''
   slots.variant = slotsCache.has(row.id)
     ? [...slotsCache.get(row.id)!]
     : ['', '', '', '', '', '', '']
@@ -496,6 +509,8 @@ async function doGenerate() {
   // 先保存当前槽位到后端，再生图
   await saveSlotCache()
 
+  prevUrls.no_logo = ''
+  prevUrls.with_logo = ''
   generating.value = true
   try {
     await todoApi.generate(genProduct.value.id, selectedTemplateId.value)
@@ -510,6 +525,32 @@ async function doGenerate() {
   } finally { generating.value = false }
 }
 
+// 单独重新生成某一版，旧图保留显示
+async function regenerate(mode: 'no_logo' | 'with_logo') {
+  if (!selectedTemplateId.value) return ElMessage.warning('请选择提示词模板')
+  if (!genProduct.value) return
+  if (!slots.variant.some(Boolean)) return ElMessage.warning('请至少拖入一张素材')
+
+  await saveSlotCache()
+
+  // 记住旧图，重新生成期间继续显示
+  const old = genResults.value.find((g: any) => (mode === 'with_logo') === !!g.has_logo)
+  prevUrls[mode] = old?.status === 'done' && old?.url ? old.url : ''
+
+  try {
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode)
+    pollGenStatus()
+  } catch (e: any) {
+    prevUrls[mode] = ''
+    const msg = typeof e === 'string' ? e : ''
+    if (msg.includes('API Key') || msg.includes('未配置') || msg.includes('api_key')) {
+      ElMessage.error('请配置模型（系统设置 → AI 生图设置）')
+    } else {
+      ElMessage.error('生成失败')
+    }
+  }
+}
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 function pollGenStatus() {
   if (pollTimer) clearInterval(pollTimer)
@@ -521,6 +562,8 @@ function pollGenStatus() {
     if (allDone && pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
+      prevUrls.no_logo = ''
+      prevUrls.with_logo = ''
       silentRefresh(true) // 强制静默刷新列表，更新主图缩略图和失败状态
       // 根据结果给出提示
       const hasDone = genResults.value.some((g: any) => g.status === 'done')

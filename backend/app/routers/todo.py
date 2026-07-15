@@ -312,7 +312,7 @@ def get_generated(product_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/{product_id}/generate")
 def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(require_roles("selector", "admin"))):
-    """触发生图 body: { template_id: int }"""
+    """触发生图 body: { template_id: int, mode: 'both'|'no_logo'|'with_logo' }"""
     from app.config import settings
     if not settings.OPENAI_API_KEY:
         raise HTTPException(status_code=400, detail="未配置 OpenAI API Key，请在系统设置中配置")
@@ -338,31 +338,46 @@ def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), 
     else:
         raise HTTPException(status_code=400, detail="请选择提示词模板")
 
-    # 清除旧的生成记录
-    db.query(GeneratedImage).filter(GeneratedImage.product_id == product_id).delete()
+    mode = body.get("mode") or "both"
+    if mode not in ("both", "no_logo", "with_logo"):
+        raise HTTPException(status_code=400, detail="mode 参数不合法")
 
-    # 创建两条生成记录 (无logo + 有logo)
-    gen_no_logo = GeneratedImage(product_id=product_id, has_logo=False, status="pending")
-    gen_with_logo = GeneratedImage(product_id=product_id, has_logo=True, status="pending")
-    db.add(gen_no_logo)
-    db.add(gen_with_logo)
+    # 按 mode 清除并重建对应版本的生成记录，另一版保留
+    no_logo_id = None
+    with_logo_id = None
+    if mode in ("both", "no_logo"):
+        db.query(GeneratedImage).filter(
+            GeneratedImage.product_id == product_id, GeneratedImage.has_logo == False
+        ).delete()
+        gen_no_logo = GeneratedImage(product_id=product_id, has_logo=False, status="pending")
+        db.add(gen_no_logo)
+    if mode in ("both", "with_logo"):
+        db.query(GeneratedImage).filter(
+            GeneratedImage.product_id == product_id, GeneratedImage.has_logo == True
+        ).delete()
+        gen_with_logo = GeneratedImage(product_id=product_id, has_logo=True, status="pending")
+        db.add(gen_with_logo)
     db.commit()
-    db.refresh(gen_no_logo)
-    db.refresh(gen_with_logo)
+    if mode in ("both", "no_logo"):
+        db.refresh(gen_no_logo)
+        no_logo_id = gen_no_logo.id
+    if mode in ("both", "with_logo"):
+        db.refresh(gen_with_logo)
+        with_logo_id = gen_with_logo.id
 
     # 在后台线程中执行生图
     import threading
     threading.Thread(
         target=_do_generate,
-        args=(product_id, gen_no_logo.id, gen_with_logo.id, prompt_text, [m.url for m in materials]),
+        args=(product_id, no_logo_id, with_logo_id, prompt_text, [m.url for m in materials]),
         daemon=True,
     ).start()
 
-    return Resp(data={"no_logo_id": gen_no_logo.id, "with_logo_id": gen_with_logo.id})
+    return Resp(data={"no_logo_id": no_logo_id, "with_logo_id": with_logo_id})
 
 
-def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_text: str, material_urls: list[str]):
-    """后台生图线程"""
+def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | None, prompt_text: str, material_urls: list[str]):
+    """后台生图线程。no_logo_id / with_logo_id 为 None 表示跳过该版本。"""
     from app.database import SessionLocal
     from app.config import settings
     import os, httpx as req
@@ -393,8 +408,10 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                 continue
 
         if not temp_files:
-            _update_gen_status(db, no_logo_id, "failed", error="无法下载素材图片")
-            _update_gen_status(db, with_logo_id, "failed", error="无法下载素材图片")
+            if no_logo_id is not None:
+                _update_gen_status(db, no_logo_id, "failed", error="无法下载素材图片")
+            if with_logo_id is not None:
+                _update_gen_status(db, with_logo_id, "failed", error="无法下载素材图片")
             return
 
         out_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
@@ -459,13 +476,16 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             finally:
                 wdb.close()
 
-        logo_prompt = prompt_text + "\n在产品主体的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。"
-        t1 = threading.Thread(target=_worker, args=(no_logo_id, prompt_text, "no_logo.png", True))
-        t2 = threading.Thread(target=_worker, args=(with_logo_id, logo_prompt, "with_logo.png", False))
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
+        logo_prompt = prompt_text + "\n在左上角主视觉区大图产品的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。下方的变体缩略图保持原样，不要添加 logo。"
+        threads = []
+        if no_logo_id is not None:
+            threads.append(threading.Thread(target=_worker, args=(no_logo_id, prompt_text, "no_logo.png", True)))
+        if with_logo_id is not None:
+            threads.append(threading.Thread(target=_worker, args=(with_logo_id, logo_prompt, "with_logo.png", False)))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
         # 清理临时文件
         for f in temp_files:
@@ -474,8 +494,10 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             except Exception:
                 pass
     except Exception as e:
-        _update_gen_status(db, no_logo_id, "failed", error=str(e))
-        _update_gen_status(db, with_logo_id, "failed", error=str(e))
+        if no_logo_id is not None:
+            _update_gen_status(db, no_logo_id, "failed", error=str(e))
+        if with_logo_id is not None:
+            _update_gen_status(db, with_logo_id, "failed", error=str(e))
     finally:
         db.close()
 
