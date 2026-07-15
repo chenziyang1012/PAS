@@ -412,7 +412,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                     headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
                     files=files,
                     data=data,
-                    timeout=req.Timeout(connect=15, read=300, write=60, pool=15),
+                    timeout=req.Timeout(connect=15, read=600, write=60, pool=15),
                 )
                 resp.raise_for_status()
                 result = resp.json()
@@ -421,7 +421,7 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
                     import base64
                     return base64.b64decode(img_data["b64_json"])
                 elif img_data.get("url"):
-                    return req.get(img_data["url"], timeout=30).content
+                    return req.get(img_data["url"], timeout=120).content
                 else:
                     raise Exception("API未返回图片数据")
             finally:
@@ -436,34 +436,36 @@ def _do_generate(product_id: int, no_logo_id: int, with_logo_id: int, prompt_tex
             img = img.resize((2000, 2000), Image.LANCZOS)
             img.save(path)
 
-        # 生成无logo版
-        _update_gen_status(db, no_logo_id, "generating")
-        try:
-            img_bytes = _call_edit(prompt_text)
-            no_logo_path = os.path.join(out_dir, "no_logo.png")
-            _save_and_resize(img_bytes, no_logo_path)
-            url_path = f"/uploads/generated/{product_id}/no_logo.png"
-            _update_gen_status(db, no_logo_id, "done", url=url_path)
+        # 无logo版和有logo版并行生成
+        import threading
 
-            # 更新产品主图
-            product = db.get(Product, product_id)
-            if product:
-                product.main_image = url_path
-                db.commit()
-        except Exception as e:
-            _update_gen_status(db, no_logo_id, "failed", error=str(e))
+        def _worker(gen_id: int, prompt: str, filename: str, update_main: bool):
+            wdb = SessionLocal()
+            try:
+                _update_gen_status(wdb, gen_id, "generating")
+                try:
+                    img_bytes = _call_edit(prompt)
+                    path = os.path.join(out_dir, filename)
+                    _save_and_resize(img_bytes, path)
+                    url_path = f"/uploads/generated/{product_id}/{filename}"
+                    _update_gen_status(wdb, gen_id, "done", url=url_path)
+                    if update_main:
+                        product = wdb.get(Product, product_id)
+                        if product:
+                            product.main_image = url_path
+                            wdb.commit()
+                except Exception as e:
+                    _update_gen_status(wdb, gen_id, "failed", error=str(e))
+            finally:
+                wdb.close()
 
-        # 生成有logo版
-        _update_gen_status(db, with_logo_id, "generating")
-        try:
-            logo_prompt = prompt_text + "\n在产品主体的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。"
-            img_bytes = _call_edit(logo_prompt)
-            with_logo_path = os.path.join(out_dir, "with_logo.png")
-            _save_and_resize(img_bytes, with_logo_path)
-            url_path = f"/uploads/generated/{product_id}/with_logo.png"
-            _update_gen_status(db, with_logo_id, "done", url=url_path)
-        except Exception as e:
-            _update_gen_status(db, with_logo_id, "failed", error=str(e))
+        logo_prompt = prompt_text + "\n在产品主体的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。"
+        t1 = threading.Thread(target=_worker, args=(no_logo_id, prompt_text, "no_logo.png", True))
+        t2 = threading.Thread(target=_worker, args=(with_logo_id, logo_prompt, "with_logo.png", False))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
         # 清理临时文件
         for f in temp_files:
