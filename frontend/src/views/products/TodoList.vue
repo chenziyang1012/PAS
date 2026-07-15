@@ -557,7 +557,7 @@ function pollGenStatus() {
   pollTimer = setInterval(async () => {
     if (!genProduct.value) return
     const res: any = await todoApi.getGenerated(genProduct.value.id)
-    genResults.value = res.data || []
+    genResults.value = (res.data || []).sort((a: any, b: any) => (a.has_logo ? 1 : 0) - (b.has_logo ? 1 : 0))
     const allDone = genResults.value.length > 0 && genResults.value.every((g: any) => g.status === 'done' || g.status === 'failed')
     if (allDone && pollTimer) {
       clearInterval(pollTimer)
