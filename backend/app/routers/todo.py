@@ -388,12 +388,22 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
         import tempfile, io
         from PIL import Image as PilImage
         temp_files = []
+        _dl_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.1688.com/",
+        }
         for url in material_urls:
             try:
                 if url.startswith("//"):
                     url = "https:" + url
-                r = req.get(url, timeout=15)
-                r.raise_for_status()
+                for _attempt in range(2):
+                    try:
+                        r = req.get(url, headers=_dl_headers, timeout=30)
+                        r.raise_for_status()
+                        break
+                    except Exception:
+                        if _attempt == 1:
+                            raise
                 img = PilImage.open(io.BytesIO(r.content)).convert("RGBA")
                 # 裁为正方形（images.edit 要求正方形输入）
                 w, h = img.size
