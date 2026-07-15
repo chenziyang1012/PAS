@@ -509,8 +509,9 @@ async function doGenerate() {
   // 先保存当前槽位到后端，再生图
   await saveSlotCache()
 
-  prevUrls.no_logo = ''
-  prevUrls.with_logo = ''
+  // 开始生图前保留旧图（如已有），重新生成期间继续显示
+  prevUrls.no_logo = genResults.value.find((g: any) => !g.has_logo && g.status === 'done')?.url || ''
+  prevUrls.with_logo = genResults.value.find((g: any) => g.has_logo && g.status === 'done')?.url || ''
   generating.value = true
   try {
     await todoApi.generate(genProduct.value.id, selectedTemplateId.value)

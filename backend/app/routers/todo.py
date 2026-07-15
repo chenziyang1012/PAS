@@ -417,12 +417,12 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
         out_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
         os.makedirs(out_dir, exist_ok=True)
 
-        def _call_edit(prompt: str) -> bytes:
-            """直接调用 REST API，多张参考图作为 image[] 字段上传。"""
+        def _call_edit(prompt: str, input_files: list) -> bytes:
+            """调用 REST API，input_files 为本地 PNG 路径列表。"""
             base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
-            fhs = [open(p, "rb") for p in temp_files]
+            fhs = [open(p, "rb") for p in input_files]
             try:
-                files = [("image[]", (os.path.basename(p), fh, "image/png")) for p, fh in zip(temp_files, fhs)]
+                files = [("image[]", (os.path.basename(p), fh, "image/png")) for p, fh in zip(input_files, fhs)]
                 data = {"model": "gpt-image-2", "prompt": prompt, "size": "1024x1024", "n": "1"}
                 resp = req.post(
                     f"{base}/images/edits",
@@ -453,39 +453,60 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             img = img.resize((2000, 2000), Image.LANCZOS)
             img.save(path)
 
-        # 无logo版和有logo版并行生成
-        import threading
+        logo_prompt = (
+            prompt_text
+            + "\n只在图片左上角面积最大的那一个产品图像上印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，"
+            "与产品融为一体，自然真实。其他所有缩略图、小图、变体图、场景图，一律不加任何文字或 logo，"
+            "完全保持原样不变。"
+        )
 
-        def _worker(gen_id: int, prompt: str, filename: str, update_main: bool):
-            wdb = SessionLocal()
-            try:
-                _update_gen_status(wdb, gen_id, "generating")
-                try:
-                    img_bytes = _call_edit(prompt)
-                    path = os.path.join(out_dir, filename)
-                    _save_and_resize(img_bytes, path)
-                    url_path = f"/uploads/generated/{product_id}/{filename}"
-                    _update_gen_status(wdb, gen_id, "done", url=url_path)
-                    if update_main:
-                        product = wdb.get(Product, product_id)
-                        if product:
-                            product.main_image = url_path
-                            wdb.commit()
-                except Exception as e:
-                    _update_gen_status(wdb, gen_id, "failed", error=str(e))
-            finally:
-                wdb.close()
+        no_logo_path = os.path.join(out_dir, "no_logo.png")
+        no_logo_generated = False
 
-        logo_prompt = prompt_text + "\n在左上角主视觉区大图产品的合适位置印上 'logo' 文字，如同品牌标志印刻或丝印在产品表面，与产品融为一体，自然真实。下方的变体缩略图保持原样，不要添加 logo。"
-        threads = []
+        # 第一步：用素材图生成无 logo 版
         if no_logo_id is not None:
-            threads.append(threading.Thread(target=_worker, args=(no_logo_id, prompt_text, "no_logo.png", True)))
+            _update_gen_status(db, no_logo_id, "generating")
+            try:
+                img_bytes = _call_edit(prompt_text, temp_files)
+                _save_and_resize(img_bytes, no_logo_path)
+                url_path = f"/uploads/generated/{product_id}/no_logo.png"
+                _update_gen_status(db, no_logo_id, "done", url=url_path)
+                no_logo_generated = True
+                product = db.get(Product, product_id)
+                if product:
+                    product.main_image = url_path
+                    db.commit()
+            except Exception as e:
+                _update_gen_status(db, no_logo_id, "failed", error=str(e))
+
+        # 第二步：以无 logo 图为参考生成有 logo 版（主体完全一致）
         if with_logo_id is not None:
-            threads.append(threading.Thread(target=_worker, args=(with_logo_id, logo_prompt, "with_logo.png", False)))
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+            _update_gen_status(db, with_logo_id, "generating")
+            ref_tmp_path = None
+            try:
+                if no_logo_generated and os.path.exists(no_logo_path):
+                    # 将 2000×2000 成品缩回 1024 供 API 使用
+                    ref_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                    ref_img = PilImage.open(no_logo_path).convert("RGBA").resize((1024, 1024), PilImage.LANCZOS)
+                    ref_img.save(ref_tmp.name, "PNG")
+                    ref_tmp.close()
+                    ref_tmp_path = ref_tmp.name
+                    ref_files = [ref_tmp_path]
+                else:
+                    ref_files = temp_files
+                img_bytes = _call_edit(logo_prompt, ref_files)
+                with_logo_path = os.path.join(out_dir, "with_logo.png")
+                _save_and_resize(img_bytes, with_logo_path)
+                url_path = f"/uploads/generated/{product_id}/with_logo.png"
+                _update_gen_status(db, with_logo_id, "done", url=url_path)
+            except Exception as e:
+                _update_gen_status(db, with_logo_id, "failed", error=str(e))
+            finally:
+                if ref_tmp_path:
+                    try:
+                        os.unlink(ref_tmp_path)
+                    except Exception:
+                        pass
 
         # 清理临时文件
         for f in temp_files:
