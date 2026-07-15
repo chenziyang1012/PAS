@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
-from app.models import User, Product, ProductMaterial, GeneratedImage, PromptTemplate
+from app.models import User, Product, ProductMaterial, GeneratedImage, PromptTemplate, ProductImage
 from app.schemas import Resp, BulkCreateRequest
 from app.auth import get_current_user, require_roles
 from app.scraper import scrape_product
@@ -117,8 +117,25 @@ def mark_complete(
         raise HTTPException(status_code=400, detail="只有已通过审核的产品才能标记完成")
     product.is_completed = True
     product.special_tag = "done"
+    _save_gen_to_product_images(db, product_id)
     db.commit()
     return Resp()
+
+
+def _save_gen_to_product_images(db: Session, product_id: int):
+    """将已生成完毕的图片追加到产品图片列表（去重）。"""
+    gen_images = db.query(GeneratedImage).filter(
+        GeneratedImage.product_id == product_id,
+        GeneratedImage.status == "done",
+    ).order_by(GeneratedImage.has_logo).all()  # 无logo在前
+    if not gen_images:
+        return
+    existing_urls = {img.url for img in db.query(ProductImage).filter(ProductImage.product_id == product_id).all()}
+    max_order = db.query(func.max(ProductImage.sort_order)).filter(ProductImage.product_id == product_id).scalar()
+    max_order = max_order if max_order is not None else -1
+    for i, g in enumerate(gen_images):
+        if g.url and g.url not in existing_urls:
+            db.add(ProductImage(product_id=product_id, url=g.url, sort_order=max_order + 1 + i))
 
 
 @router.post("/batch-complete")
@@ -140,6 +157,7 @@ def batch_complete(
             continue
         product.is_completed = True
         product.special_tag = "done"
+        _save_gen_to_product_images(db, pid)
     db.commit()
     return Resp()
 
