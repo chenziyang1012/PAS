@@ -57,6 +57,7 @@
           <template #default="{row}">
             <el-button size="small" type="primary" @click="openImageGen(row)">生图</el-button>
             <el-button size="small" type="success" @click="markComplete(row)">完成</el-button>
+            <el-button size="small" type="danger" @click="del(row)">删除</el-button>
             <el-button size="small" @click="router.push(`/products/${row.id}`)">详情</el-button>
           </template>
         </el-table-column>
@@ -243,7 +244,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
-import { todoApi, uploadApi } from '@/api'
+import { todoApi, uploadApi, productApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
 
@@ -352,6 +353,15 @@ async function silentRefresh(force = false) {
       total.value = res.data.total
     }
   } catch {} // 后台静默失败，不弹错误
+}
+
+async function del(row: any) {
+  await ElMessageBox.confirm('确认彻底删除该产品？此操作不可恢复。', '删除确认', { type: 'warning' })
+  try {
+    await productApi.delete(row.id)
+    ElMessage.success('已删除')
+    load()
+  } catch (e: any) { ElMessage.error(e || '删除失败') }
 }
 
 async function markComplete(row: any) {
