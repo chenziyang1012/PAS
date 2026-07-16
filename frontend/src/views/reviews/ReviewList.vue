@@ -220,6 +220,24 @@ function openAiDialog(row: any) {
   aiReviewApi.getDoubaoSettings().then((res: any) => {
     if (res.data?.prompt && !aiPrompt.value) aiPrompt.value = res.data.prompt
   }).catch(() => {})
+  // 拉取最新结果，如果正在处理中则自动轮询
+  aiReviewApi.getResult(row.id).then((res: any) => {
+    const d = res.data
+    if (d.ai_review_result) aiResult.value = d.ai_review_result
+    if (d.is_pending) {
+      aiLoading.value = true
+      _aiPollTimer = setInterval(async () => {
+        try {
+          const r: any = await aiReviewApi.getResult(aiDialogProduct.value.id)
+          if (!r.data.is_pending) {
+            clearInterval(_aiPollTimer!); _aiPollTimer = null
+            aiLoading.value = false
+            aiResult.value = r.data.ai_review_result
+          }
+        } catch {}
+      }, 2000)
+    }
+  }).catch(() => {})
 }
 
 function closeAiDialog(done?: () => void) {
