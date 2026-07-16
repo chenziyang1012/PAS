@@ -304,12 +304,17 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
         result: list = []
 
         def _normalize_alicdn(u: str) -> str:
-            """提取 alicdn 图片的核心标识，去掉尺寸/质量/格式后缀用于去重。"""
+            """提取 alicdn 图片的核心标识，去掉尺寸/质量/格式后缀用于去重。
+            1688 常见变体:
+              xxx.jpg_220x220.jpg   xxx.jpg_q90.jpg   xxx.jpg_.webp
+              xxx_220x220.jpg       xxx.jpg?x-oss-process=...
+            """
             u = u.split('?')[0]
+            # 去掉 .ext_NNxNN.ext  .ext_qNN.ext  .ext_.ext 这类二段式后缀
+            u = re.sub(r'\.(jpe?g|png|webp)_.*$', r'.\1', u, flags=re.IGNORECASE)
+            # 去掉 _NNxNN  _qNN
             u = re.sub(r'_\d{1,4}x\d{1,4}', '', u)
             u = re.sub(r'_q\d+', '', u)
-            u = re.sub(r'\._\.\w+$', '', u)
-            u = re.sub(r'\.(\w+)_\.\w+$', r'.\1', u)
             return u
 
         def _url_size(u: str) -> int:
@@ -326,8 +331,6 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
                 return
             if u.startswith("//"):
                 u = "https:" + u
-            # Strip size suffix to get original quality
-            u = re.sub(r'_\d{2,4}x\d{2,4}\.(jpg|jpeg|png|webp)', r'.\1', u, flags=re.IGNORECASE)
             if "alicdn.com" not in u:
                 return
             if u.endswith((".gif", ".ico", ".svg")):
@@ -336,7 +339,6 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
                 return
             key = _normalize_alicdn(u)
             if key in seen_keys:
-                # 保留更大尺寸的
                 idx = seen_keys[key]
                 if _url_size(u) > _url_size(result[idx]):
                     result[idx] = u
