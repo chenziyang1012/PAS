@@ -304,6 +304,17 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
         seen: set = set()
         result: list = []
 
+        def _normalize_alicdn(u: str) -> str:
+            """提取 alicdn 图片的核心标识，去掉尺寸/质量/格式后缀用于去重。"""
+            # 去掉查询参数
+            u = u.split('?')[0]
+            # 去掉常见的尺寸/质量后缀: _220x220.jpg, _.webp, _q90.jpg, _800x800.jpg_.webp 等
+            u = re.sub(r'_\d{1,4}x\d{1,4}', '', u)
+            u = re.sub(r'_q\d+', '', u)
+            u = re.sub(r'\._\.\w+$', '', u)  # _.webp 结尾
+            u = re.sub(r'\.(\w+)_\.\w+$', r'.\1', u)  # .jpg_.webp → .jpg
+            return u
+
         def add(u: str):
             if not u:
                 return
@@ -317,8 +328,9 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
                 return
             if re.search(r'_\d{1,2}x\d{1,2}\.', u):  # skip tiny icons
                 return
-            if u not in seen:
-                seen.add(u)
+            key = _normalize_alicdn(u)
+            if key not in seen:
+                seen.add(key)
                 result.append(u)
 
         # 1. Main product carousel images from named list fields
