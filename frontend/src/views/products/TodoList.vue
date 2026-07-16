@@ -162,8 +162,7 @@
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <span style="font-size:13px;font-weight:bold">有Logo提示词</span>
           </div>
-          <el-select v-model="selectedLogoTemplateId" placeholder="选择Logo提示词模板" style="width:100%">
-            <el-option :value="null" label="不选择，只生成无Logo版" />
+          <el-select v-model="selectedLogoTemplateId" placeholder="不选择，只生成无Logo版" clearable style="width:100%">
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </div>
