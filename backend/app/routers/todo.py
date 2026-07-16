@@ -497,7 +497,8 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             try:
                 img_bytes = _call_edit(prompt_text, temp_files)
                 _save_and_resize(img_bytes, no_logo_path)
-                url_path = f"/uploads/generated/{product_id}/no_logo.png"
+                ts = int(datetime.now(timezone.utc).timestamp())
+                url_path = f"/uploads/generated/{product_id}/no_logo.png?t={ts}"
                 _update_gen_status(db, no_logo_id, "done", url=url_path)
                 no_logo_generated = True
                 product = db.get(Product, product_id)
@@ -531,7 +532,8 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
                 img_bytes = _call_edit(logo_prompt, ref_files)
                 with_logo_path = os.path.join(out_dir, "with_logo.png")
                 _save_and_resize(img_bytes, with_logo_path)
-                url_path = f"/uploads/generated/{product_id}/with_logo.png"
+                ts = int(datetime.now(timezone.utc).timestamp())
+                url_path = f"/uploads/generated/{product_id}/with_logo.png?t={ts}"
                 _update_gen_status(db, with_logo_id, "done", url=url_path)
             except Exception as e:
                 _update_gen_status(db, with_logo_id, "failed", error=str(e))
