@@ -430,8 +430,8 @@ def delete_product(product_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=404, detail="产品不存在")
     if product.creator_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="无权删除")
-    if current_user.role != "admin" and product.status != "draft":
-        raise HTTPException(status_code=400, detail="只能删除草稿状态产品")
+    if current_user.role != "admin" and product.status not in ("draft", "approved"):
+        raise HTTPException(status_code=400, detail="只能删除草稿或待做状态的产品")
     _cleanup_generated_files(product_id)
     db.delete(product)
     db.commit()
