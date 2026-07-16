@@ -37,6 +37,8 @@ def approve(product_id: int, db: Session = Depends(get_db), current_user: User =
     if not product or product.status != "pending_review":
         raise HTTPException(status_code=400, detail="产品不存在或状态不正确")
     product.status = "approved"
+    from datetime import datetime, timezone
+    product.approved_at = datetime.now(timezone.utc)
     db.add(Review(product_id=product.id, reviewer_id=current_user.id, result="approved"))
     db.commit()
     return Resp()

@@ -36,7 +36,7 @@ def list_todo(
     if creator_username:
         q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
     total = q.count()
-    items = q.order_by(Product.updated_at.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Product.approved_at.asc()).offset((page - 1) * page_size).limit(page_size).all()
     return Resp(data={
         "items": [_todo_item(p, db) for p in items],
         "total": total,
@@ -59,6 +59,7 @@ def _todo_item(p: Product, db: Session) -> dict:
         "creator": {"username": p.creator.username, "real_name": p.creator.real_name} if p.creator else None,
         "images": [{"id": img.id, "url": img.url} for img in p.images],
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+        "approved_at": p.approved_at.isoformat() if p.approved_at else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "generated_images": {
             "no_logo": {"url": no_logo.url, "status": no_logo.status} if no_logo else None,

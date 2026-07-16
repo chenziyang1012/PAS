@@ -18,6 +18,7 @@ def _migrate():
         ("products", "is_completed", "TINYINT(1) NOT NULL DEFAULT 0"),
         ("products", "special_tag", "VARCHAR(20)"),
         ("products", "submit_time", "DATETIME"),
+        ("products", "approved_at", "DATETIME"),
         ("reviews", "reject_type", "VARCHAR(20)"),
         ("users", "cookie_1688", "TEXT"),
     ]
@@ -43,6 +44,19 @@ def _migrate_other_tag():
             pass
 
 _migrate_other_tag()
+
+def _backfill_approved_at():
+    """已通过审核但 approved_at 为空的产品，用 updated_at 回填。"""
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "UPDATE products SET approved_at = updated_at WHERE status='approved' AND approved_at IS NULL"
+            ))
+            conn.commit()
+        except Exception:
+            pass
+
+_backfill_approved_at()
 
 def _cleanup_stale_pending():
     """Mark any pending/generating generated_images as failed on startup — they belong to threads that died with a previous process."""

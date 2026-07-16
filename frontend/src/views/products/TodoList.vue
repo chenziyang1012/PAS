@@ -50,8 +50,8 @@
         <el-table-column v-if="auth.user?.role !== 'selector'" label="选品员" width="100">
           <template #default="{row}">{{ row.creator?.username }}</template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="通过时间" width="150">
-          <template #default="{row}">{{ row.updated_at?.slice(0,19).replace('T',' ') }}</template>
+        <el-table-column prop="approved_at" label="通过时间" width="150">
+          <template #default="{row}">{{ (row.approved_at || row.updated_at)?.slice(0,19).replace('T',' ') }}</template>
         </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="{row}">
