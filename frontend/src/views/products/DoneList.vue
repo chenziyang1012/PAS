@@ -4,6 +4,7 @@
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="load" />
+          <el-input v-model="query.product_code" placeholder="产品ID" clearable style="width:120px" @change="load" />
           <el-input v-model="query.creator_username" placeholder="选品员用户名" clearable style="width:130px" @change="load" />
           <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="完成开始" end-placeholder="完成结束" style="width:220px" @change="onDateChange" value-format="YYYY-MM-DD" />
         </div>
@@ -17,6 +18,9 @@
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
         <el-table-column type="selection" width="45" />
+        <el-table-column label="产品ID" width="120">
+          <template #default="{row}">{{ row.product_code || '-' }}</template>
+        </el-table-column>
         <el-table-column label="主图" width="80">
           <template #default="{row}">
             <PreviewImage v-if="row.main_image || row.images?.[0]?.url" :src="row.main_image || row.images[0].url" />
@@ -83,6 +87,7 @@ const pageSize = ref(20)
 const dateRange = ref<[string, string] | null>(null)
 const query = reactive({
   page: 1, keyword: '', creator_username: '',
+  product_code: '' as string | undefined,
   date_from: undefined as string | undefined,
   date_to: undefined as string | undefined,
 })

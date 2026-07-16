@@ -78,6 +78,7 @@ def list_done(
     page: int = 1, page_size: int = 20,
     keyword: str | None = None,
     creator_username: str | None = None,
+    product_code: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -86,6 +87,8 @@ def list_done(
     q = db.query(Product).filter(Product.special_tag == "done")
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
+    if product_code:
+        q = q.filter(Product.product_code.contains(product_code))
     if creator_username:
         q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
     if date_from:

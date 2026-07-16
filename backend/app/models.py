@@ -36,6 +36,7 @@ class Product(Base):
     creator_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     submit_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    product_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

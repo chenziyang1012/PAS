@@ -65,6 +65,19 @@
       <el-pagination style="margin-top:16px" v-model:current-page="query.page" v-model:page-size="pageSize" :page-sizes="[20,50,100,200]" :total="total" @current-change="load" @size-change="onSizeChange" layout="total,sizes,prev,pager,next" />
     </el-card>
 
+    <!-- 完成对话框 -->
+    <el-dialog v-model="completeDialogVisible" title="标记完成" width="380px" @close="completeProductCode=''">
+      <el-form label-width="80px">
+        <el-form-item label="产品ID">
+          <el-input v-model="completeProductCode" placeholder="请输入公司产品ID" clearable @keyup.enter="doMarkComplete" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="completeDialogVisible=false">取消</el-button>
+        <el-button type="primary" :loading="completeLoading" @click="doMarkComplete">确认完成</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 批量导入 -->
     <el-dialog v-model="bulkImportVisible" title="批量导入产品链接（待做）" width="500px">
       <p style="color:#606266;font-size:13px;margin-bottom:8px">每行输入一个产品链接，导入后直接进入待做列表</p>
@@ -263,8 +276,11 @@ const bulkImportVisible = ref(false)
 const bulkUrls = ref('')
 const bulkLoading = ref(false)
 
-// 生图
-const genVisible = ref(false)
+// 完成
+const completeDialogVisible = ref(false)
+const completeProductCode = ref('')
+const completeLoading = ref(false)
+const completeTargetRow = ref<any>(null)
 const genProduct = ref<any>(null)
 const genLoading = ref(false)
 const scraping = ref(false)
@@ -344,7 +360,7 @@ async function load() {
 
 async function silentRefresh(force = false) {
   // 有对话框打开时跳过，不打断用户操作（除非强制刷新）
-  if (!force && (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value)) return
+  if (!force && (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value || completeDialogVisible.value)) return
   try {
     const res: any = await todoApi.list({ ...query, page_size: pageSize.value })
     // 数据没变化就不替换，避免不必要的重渲染和闪屏
@@ -366,12 +382,21 @@ async function del(row: any) {
 }
 
 async function markComplete(row: any) {
-  await ElMessageBox.confirm('确认标记完成？完成后将进入已做列表。')
+  completeTargetRow.value = row
+  completeProductCode.value = ''
+  completeDialogVisible.value = true
+}
+
+async function doMarkComplete() {
+  if (!completeProductCode.value.trim()) return ElMessage.warning('请输入产品ID')
+  completeLoading.value = true
   try {
-    await todoApi.complete(row.id)
+    await todoApi.complete(completeTargetRow.value.id, completeProductCode.value.trim())
     ElMessage.success('已标记完成')
+    completeDialogVisible.value = false
     load()
   } catch (e: any) { ElMessage.error(e || '操作失败') }
+  finally { completeLoading.value = false }
 }
 
 async function batchComplete() {

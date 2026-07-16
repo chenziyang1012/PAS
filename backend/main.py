@@ -19,6 +19,7 @@ def _migrate():
         ("products", "special_tag", "VARCHAR(20)"),
         ("products", "submit_time", "DATETIME"),
         ("products", "approved_at", "DATETIME"),
+        ("products", "product_code", "VARCHAR(100)"),
         ("reviews", "reject_type", "VARCHAR(20)"),
         ("users", "cookie_1688", "TEXT"),
     ]

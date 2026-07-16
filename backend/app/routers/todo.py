@@ -104,6 +104,7 @@ def bulk_create_todo(
 @router.post("/{product_id}/complete")
 def mark_complete(
     product_id: int,
+    product_code: str | None = Body(None, embed=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -118,6 +119,8 @@ def mark_complete(
         raise HTTPException(status_code=400, detail="只有已通过审核的产品才能标记完成")
     product.is_completed = True
     product.special_tag = "done"
+    if product_code:
+        product.product_code = product_code.strip()
     _save_gen_to_product_images(db, product_id)
     db.commit()
     return Resp()

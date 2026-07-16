@@ -78,7 +78,7 @@ export const uploadApi = {
 export const todoApi = {
   list: (params?: object) => http.get('/api/todo', { params }),
   bulkCreate: (urls: string[]) => http.post('/api/todo/bulk', { urls }),
-  complete: (id: number) => http.post(`/api/todo/${id}/complete`),
+  complete: (id: number, product_code?: string) => http.post(`/api/todo/${id}/complete`, { product_code }),
   batchComplete: (ids: number[]) => http.post('/api/todo/batch-complete', { ids }),
   // 素材
   getMaterials: (id: number) => http.get(`/api/todo/${id}/materials`),
