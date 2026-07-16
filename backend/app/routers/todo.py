@@ -525,41 +525,37 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
             except Exception as e:
                 _update_gen_status(db, no_logo_id, "failed", error=str(e))
 
-        _DEFAULT_LOGO_PROMPT = (
-            "以此图为参考，仅在左上角主视觉区的产品上，于合适位置印上\"logo\"文字，"
-            "如同品牌标志印刻或丝印在产品表面，与产品材质、光影融为一体，自然真实。"
-            "画面其他区域（变体缩略图、场景图、背景）完全保持与参考图一致，不做任何改动。"
-        )
-        logo_prompt = logo_prompt_text or _DEFAULT_LOGO_PROMPT
-
         # 第二步：以无 logo 图为参考，AI 叠加 logo
         if with_logo_id is not None:
-            _update_gen_status(db, with_logo_id, "generating")
-            ref_tmp_path = None
-            try:
-                if os.path.exists(no_logo_path):
-                    ref_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                    ref_img = PilImage.open(no_logo_path).convert("RGBA").resize((1024, 1024), PilImage.LANCZOS)
-                    ref_img.save(ref_tmp.name, "PNG")
-                    ref_tmp.close()
-                    ref_tmp_path = ref_tmp.name
-                    ref_files = [ref_tmp_path]
-                else:
-                    ref_files = temp_files
-                img_bytes = _call_edit(logo_prompt, ref_files)
-                with_logo_path = os.path.join(out_dir, "with_logo.png")
-                _save_and_resize(img_bytes, with_logo_path)
-                ts = int(datetime.now(timezone.utc).timestamp())
-                url_path = f"/uploads/generated/{product_id}/with_logo.png?t={ts}"
-                _update_gen_status(db, with_logo_id, "done", url=url_path)
-            except Exception as e:
-                _update_gen_status(db, with_logo_id, "failed", error=str(e))
-            finally:
-                if ref_tmp_path:
-                    try:
-                        os.unlink(ref_tmp_path)
-                    except Exception:
-                        pass
+            if not logo_prompt_text:
+                _update_gen_status(db, with_logo_id, "failed", error="未选择有Logo提示词模板")
+            else:
+                _update_gen_status(db, with_logo_id, "generating")
+                ref_tmp_path = None
+                try:
+                    if os.path.exists(no_logo_path):
+                        ref_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                        ref_img = PilImage.open(no_logo_path).convert("RGBA").resize((1024, 1024), PilImage.LANCZOS)
+                        ref_img.save(ref_tmp.name, "PNG")
+                        ref_tmp.close()
+                        ref_tmp_path = ref_tmp.name
+                        ref_files = [ref_tmp_path]
+                    else:
+                        ref_files = temp_files
+                    img_bytes = _call_edit(logo_prompt_text, ref_files)
+                    with_logo_path = os.path.join(out_dir, "with_logo.png")
+                    _save_and_resize(img_bytes, with_logo_path)
+                    ts = int(datetime.now(timezone.utc).timestamp())
+                    url_path = f"/uploads/generated/{product_id}/with_logo.png?t={ts}"
+                    _update_gen_status(db, with_logo_id, "done", url=url_path)
+                except Exception as e:
+                    _update_gen_status(db, with_logo_id, "failed", error=str(e))
+                finally:
+                    if ref_tmp_path:
+                        try:
+                            os.unlink(ref_tmp_path)
+                        except Exception:
+                            pass
 
         # 清理临时文件
         for f in temp_files:

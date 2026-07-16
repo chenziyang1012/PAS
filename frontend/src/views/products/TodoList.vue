@@ -147,7 +147,7 @@
         <div style="margin-bottom:16px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <span style="font-size:13px;font-weight:bold">有Logo提示词</span>
-            <span style="font-size:12px;color:#909399">不选则使用默认</span>
+            <span style="font-size:12px;color:#909399">不选则只生成无Logo版</span>
           </div>
           <el-select v-model="selectedLogoTemplateId" placeholder="选择Logo提示词模板（不选用默认）" style="width:100%" clearable>
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
@@ -537,7 +537,8 @@ async function doGenerate() {
   prevUrls.with_logo = genResults.value.find((g: any) => g.has_logo && g.status === 'done')?.url || ''
   generating.value = true
   try {
-    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, 'both', selectedLogoTemplateId.value ?? undefined)
+    const mode = selectedLogoTemplateId.value ? 'both' : 'no_logo'
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode, selectedLogoTemplateId.value ?? undefined)
     pollGenStatus()
   } catch (e: any) {
     const msg = typeof e === 'string' ? e : ''
