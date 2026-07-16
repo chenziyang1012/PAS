@@ -77,7 +77,7 @@ def list_products(
 def list_done(
     page: int = 1, page_size: int = 20,
     keyword: str | None = None,
-    creator_username: str | None = None,
+    creator_id: int | None = None,
     product_code: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -89,8 +89,8 @@ def list_done(
         q = q.filter(Product.product_name.contains(keyword))
     if product_code:
         q = q.filter(Product.product_code.contains(product_code))
-    if creator_username:
-        q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
+    if creator_id:
+        q = q.filter(Product.creator_id == creator_id)
     if date_from:
         q = q.filter(func.date(Product.done_at) >= date_from)
     if date_to:
@@ -103,7 +103,7 @@ def list_done(
 def list_infringe(
     page: int = 1, page_size: int = 20,
     keyword: str | None = None,
-    creator_username: str | None = None,
+    creator_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -112,8 +112,8 @@ def list_infringe(
     q = db.query(Product).filter(Product.special_tag == "infringe")
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
-    if creator_username:
-        q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
+    if creator_id:
+        q = q.filter(Product.creator_id == creator_id)
     if date_from:
         q = q.filter(func.date(Product.updated_at) >= date_from)
     if date_to:
@@ -126,7 +126,7 @@ def list_infringe(
 def list_other(
     page: int = 1, page_size: int = 20,
     keyword: str | None = None,
-    creator_username: str | None = None,
+    creator_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -135,8 +135,8 @@ def list_other(
     q = db.query(Product).filter(Product.special_tag == "other")
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
-    if creator_username:
-        q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
+    if creator_id:
+        q = q.filter(Product.creator_id == creator_id)
     if date_from:
         q = q.filter(func.date(Product.updated_at) >= date_from)
     if date_to:
