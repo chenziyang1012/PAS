@@ -368,7 +368,12 @@ async function silentRefresh(force = false) {
     // 数据没变化就不替换，避免不必要的重渲染和闪屏
     const incoming = JSON.stringify(res.data.items)
     if (incoming !== JSON.stringify(list.value)) {
-      list.value = res.data.items
+      const _map = new Map(list.value.map((r: any) => [r.id, r]))
+      list.value = res.data.items.map((row: any) => {
+        const ex = _map.get(row.id)
+        if (ex) { Object.assign(ex, row); return ex }
+        return row
+      })
       total.value = res.data.total
     }
   } catch {} // 后台静默失败，不弹错误
