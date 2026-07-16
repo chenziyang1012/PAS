@@ -96,7 +96,7 @@ def list_done(
     if date_to:
         q = q.filter(func.date(Product.done_at) <= date_to)
     total = q.count()
-    items = q.order_by(Product.done_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Product.done_at.desc(), Product.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return Resp(data={"total": total, "items": [ProductOut.model_validate(p) for p in items]})
 
 @router.get("/infringe")
