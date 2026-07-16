@@ -111,14 +111,17 @@ _settings_file = os.path.join(
 
 
 def _load_doubao_settings():
-    if os.path.exists(_settings_file):
-        import json
-        with open(_settings_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        settings.DOUBAO_API_KEY = data.get("api_key", "")
-        settings.DOUBAO_BASE_URL = data.get("base_url", settings.DOUBAO_BASE_URL)
-        settings.DOUBAO_MODEL = data.get("model", "")
-        settings.DOUBAO_PROMPT = data.get("prompt", "")
+    try:
+        if os.path.exists(_settings_file):
+            import json
+            with open(_settings_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            settings.DOUBAO_API_KEY = data.get("api_key", "")
+            settings.DOUBAO_BASE_URL = data.get("base_url", settings.DOUBAO_BASE_URL)
+            settings.DOUBAO_MODEL = data.get("model", "")
+            settings.DOUBAO_PROMPT = data.get("prompt", "")
+    except Exception:
+        pass
 
 
 _load_doubao_settings()

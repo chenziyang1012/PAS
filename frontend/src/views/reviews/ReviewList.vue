@@ -288,6 +288,7 @@ function closeAiDialog(done?: () => void) {
 async function triggerAiReview() {
   if (!aiDialogProduct.value) return
   aiLoading.value = true
+  if (_aiPollTimer) { clearInterval(_aiPollTimer); _aiPollTimer = null }
   try {
     await aiReviewApi.triggerReview(aiDialogProduct.value.id, aiPrompt.value || undefined)
     _aiPollTimer = setInterval(async () => {
@@ -340,11 +341,23 @@ async function batchAiReview() {
     ElMessage.success(`已触发 ${ids.length} 个产品的 AI 审核`)
     if (!_batchPollTimer) {
       _batchPollTimer = setInterval(async () => {
-        await silentRefresh()
-        pendingAiIds.value = pendingAiIds.value.filter(id => {
-          const row = list.value.find((r: any) => r.id === id)
-          return row && !row.ai_review_result
-        })
+        try {
+          const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
+          const items: any[] = res.data.items
+          if (!rejectVisible.value && !aiDialogVisible.value) {
+            const _map = new Map(list.value.map((r: any) => [r.id, r]))
+            list.value = items.map((row: any) => {
+              const ex = _map.get(row.id)
+              if (ex) { Object.assign(ex, row); return ex }
+              return row
+            })
+            total.value = res.data.total
+          }
+          pendingAiIds.value = pendingAiIds.value.filter(id => {
+            const row = items.find((r: any) => r.id === id)
+            return !row || !row.ai_review_result
+          })
+        } catch {}
         if (pendingAiIds.value.length === 0) {
           clearInterval(_batchPollTimer!); _batchPollTimer = null
         }
