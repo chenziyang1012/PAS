@@ -115,6 +115,7 @@
             <div style="font-size:13px;font-weight:bold;margin-bottom:8px">
               变体图（{{ slots.variant.length }}张）
               <el-button size="small" text @click="addVariantSlot">+ 加框</el-button>
+              <el-button size="small" text @click="removeVariantSlot" :disabled="slots.variant.length <= 1">- 减框</el-button>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <div v-for="(v, idx) in slots.variant" :key="'var'+idx"
@@ -516,6 +517,17 @@ function clearSlot(type: 'variant', idx: number) {
 
 function addVariantSlot() {
   slots.variant.push('')
+}
+
+function removeVariantSlot() {
+  if (slots.variant.length <= 1) return
+  // 优先删最后一个空框，没有空框则删最后一个
+  const lastEmptyIdx = slots.variant.lastIndexOf('')
+  if (lastEmptyIdx >= 0) {
+    slots.variant.splice(lastEmptyIdx, 1)
+  } else {
+    slots.variant.pop()
+  }
 }
 
 function isUsed(url: string) {
