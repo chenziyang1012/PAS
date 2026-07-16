@@ -84,6 +84,17 @@ async function load() {
   } finally { loading.value = false }
 }
 
+async function silentRefresh() {
+  try {
+    const res: any = await productApi.listOther({ ...query, page_size: pageSize.value })
+    const incoming = JSON.stringify(res.data.items)
+    if (incoming !== JSON.stringify(list.value)) {
+      list.value = res.data.items
+      total.value = res.data.total
+    }
+  } catch {}
+}
+
 async function del(row: any) {
   await ElMessageBox.confirm('确认删除？')
   await productApi.delete(row.id)
@@ -106,7 +117,7 @@ watch([() => query.page, pageSize], () => {
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:other')
   if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
-  load(); _timer = setInterval(load, 15000)
+  load(); _timer = setInterval(silentRefresh, 15000)
 })
 onUnmounted(() => { clearInterval(_timer) })
 </script>
