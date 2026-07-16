@@ -204,7 +204,7 @@ onMounted(() => {
   const saved = sessionStorage.getItem('pag:done')
   if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
   if (auth.user?.role !== 'selector') {
-    userApi.listSelectors().then((res: any) => { selectors.value = res.data || [] })
+    userApi.listSelectors().then((res: any) => { selectors.value = res.data?.items || [] })
   }
   load(); _timer = setInterval(silentRefresh, 15000)
 })
