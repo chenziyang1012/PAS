@@ -169,12 +169,17 @@ async function batchApprove() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-watch([() => query.page, pageSize], () => {
-  sessionStorage.setItem('pag:reviews', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+watch([() => query.page, pageSize, () => query.keyword, () => query.creator_id], () => {
+  sessionStorage.setItem('pag:reviews', JSON.stringify({ page: query.page, pageSize: pageSize.value, keyword: query.keyword, creator_id: query.creator_id }))
 })
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:reviews')
-  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  if (saved) {
+    const p = JSON.parse(saved)
+    query.page = p.page; pageSize.value = p.pageSize
+    query.keyword = p.keyword || ''
+    query.creator_id = p.creator_id ?? undefined
+  }
   load(); loadSelectors(); _timer = setInterval(silentRefresh, 15000)
 })
 onUnmounted(() => { clearInterval(_timer) })

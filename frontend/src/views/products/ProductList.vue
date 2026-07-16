@@ -249,12 +249,18 @@ async function doBulkImport() {
 
 let _timer: ReturnType<typeof setInterval>
 let _bc: BroadcastChannel | null = null
-watch([() => query.page, pageSize], () => {
-  sessionStorage.setItem('pag:products', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+watch([() => query.page, pageSize, () => query.keyword, () => query.status, () => query.date_from, () => query.date_to], () => {
+  sessionStorage.setItem('pag:products', JSON.stringify({ page: query.page, pageSize: pageSize.value, keyword: query.keyword, status: query.status, date_from: query.date_from, date_to: query.date_to }))
 })
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:products')
-  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  if (saved) {
+    const p = JSON.parse(saved)
+    query.page = p.page; pageSize.value = p.pageSize
+    query.keyword = p.keyword || ''
+    query.status = p.status ?? undefined
+    if (p.date_from && p.date_to) { query.date_from = p.date_from; query.date_to = p.date_to; dateRange.value = [p.date_from, p.date_to] }
+  }
   load()
   _timer = setInterval(silentRefresh, 15000)
   _bc = new BroadcastChannel('pas_import')

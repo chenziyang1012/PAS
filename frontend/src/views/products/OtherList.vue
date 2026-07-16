@@ -115,12 +115,18 @@ async function batchDelete() {
 }
 
 let _timer: ReturnType<typeof setInterval>
-watch([() => query.page, pageSize], () => {
-  sessionStorage.setItem('pag:other', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+watch([() => query.page, pageSize, () => query.keyword, () => query.creator_id, () => query.date_from, () => query.date_to], () => {
+  sessionStorage.setItem('pag:other', JSON.stringify({ page: query.page, pageSize: pageSize.value, keyword: query.keyword, creator_id: query.creator_id, date_from: query.date_from, date_to: query.date_to }))
 })
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:other')
-  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  if (saved) {
+    const p = JSON.parse(saved)
+    query.page = p.page; pageSize.value = p.pageSize
+    query.keyword = p.keyword || ''
+    query.creator_id = p.creator_id ?? undefined
+    if (p.date_from && p.date_to) { query.date_from = p.date_from; query.date_to = p.date_to; dateRange.value = [p.date_from, p.date_to] }
+  }
   if (auth.user?.role !== 'selector') {
     userApi.listSelectors().then((res: any) => { selectors.value = res.data?.items || [] })
   }
