@@ -5,7 +5,9 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="load" />
           <el-input v-model="query.product_code" placeholder="产品ID" clearable style="width:120px" @change="load" />
-          <el-input v-model="query.creator_username" placeholder="选品员用户名" clearable style="width:130px" @change="load" />
+          <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="load">
+            <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
+          </el-select>
           <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="完成开始" end-placeholder="完成结束" style="width:220px" @change="onDateChange" value-format="YYYY-MM-DD" />
         </div>
         <el-button v-if="auth.user?.role!=='reviewer'" @click="bulkImportVisible=true">批量导入链接</el-button>
@@ -73,12 +75,13 @@ import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
-import { productApi } from '@/api'
+import { productApi, userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const selectors = ref<any[]>([])
 const list = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -86,7 +89,8 @@ const selected = ref<any[]>([])
 const pageSize = ref(20)
 const dateRange = ref<[string, string] | null>(null)
 const query = reactive({
-  page: 1, keyword: '', creator_username: '',
+  page: 1, keyword: '',
+  creator_id: undefined as number | undefined,
   product_code: '' as string | undefined,
   date_from: undefined as string | undefined,
   date_to: undefined as string | undefined,
@@ -199,6 +203,9 @@ watch([() => query.page, pageSize], () => {
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:done')
   if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
+  if (auth.user?.role !== 'selector') {
+    userApi.listSelectors().then((res: any) => { selectors.value = res.data || [] })
+  }
   load(); _timer = setInterval(silentRefresh, 15000)
 })
 onUnmounted(() => { clearInterval(_timer) })
