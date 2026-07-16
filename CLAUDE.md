@@ -87,3 +87,7 @@ Server: Alibaba Cloud at `/opt/PAS`. Update command:
 ```bash
 cd /opt/PAS && git pull && cd frontend && npm run build && systemctl restart prs-backend
 ```
+
+## Debugging
+
+遇到无法本地复现的问题时，主动向用户索要所需信息（如截图、接口返回数据、日志等），不要猜测。
