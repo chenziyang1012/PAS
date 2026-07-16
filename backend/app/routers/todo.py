@@ -420,17 +420,33 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
         }
         for url in material_urls:
             try:
-                if url.startswith("//"):
+                if url.startswith("/uploads/"):
+                    # 本地上传的文件，直接从磁盘读取
+                    local_path = os.path.join(settings.UPLOAD_DIR, url[len("/uploads/"):])
+                    with open(local_path, "rb") as f:
+                        raw_bytes = f.read()
+                elif url.startswith("//"):
                     url = "https:" + url
-                for _attempt in range(2):
-                    try:
-                        r = req.get(url, headers=_dl_headers, timeout=30)
-                        r.raise_for_status()
-                        break
-                    except Exception:
-                        if _attempt == 1:
-                            raise
-                img = PilImage.open(io.BytesIO(r.content)).convert("RGBA")
+                    for _attempt in range(2):
+                        try:
+                            r = req.get(url, headers=_dl_headers, timeout=30)
+                            r.raise_for_status()
+                            break
+                        except Exception:
+                            if _attempt == 1:
+                                raise
+                    raw_bytes = r.content
+                else:
+                    for _attempt in range(2):
+                        try:
+                            r = req.get(url, headers=_dl_headers, timeout=30)
+                            r.raise_for_status()
+                            break
+                        except Exception:
+                            if _attempt == 1:
+                                raise
+                    raw_bytes = r.content
+                img = PilImage.open(io.BytesIO(raw_bytes)).convert("RGBA")
                 # 裁为正方形（images.edit 要求正方形输入）
                 w, h = img.size
                 side = max(w, h)
