@@ -35,9 +35,10 @@
         <el-table-column prop="submit_time" label="提交时间" width="150">
           <template #default="{row}">{{ row.submit_time?.slice(0,19).replace('T',' ') }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220">
+        <el-table-column label="操作" width="280">
           <template #default="{row}">
             <el-button size="small" @click="router.push(`/reviews/${row.id}`)">详情</el-button>
+            <el-button size="small" type="warning" @click="openAiDialog(row)">AI审核</el-button>
             <el-button size="small" type="success" @click="approve(row)">通过</el-button>
             <el-button size="small" type="danger" @click="openReject(row)">驳回</el-button>
           </template>
@@ -64,6 +65,40 @@
         <el-button type="danger" :loading="rejectLoading" @click="doReject">确认驳回</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="aiDialogVisible" title="AI 辅助审核" width="580px" :before-close="closeAiDialog">
+      <div v-if="aiDialogProduct">
+        <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-start">
+          <PreviewImage v-if="aiDialogProduct.main_image || aiDialogProduct.images?.[0]?.url"
+            :src="aiDialogProduct.main_image || aiDialogProduct.images[0].url" style="flex-shrink:0" />
+          <div v-else style="width:56px;height:56px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:11px;flex-shrink:0">无图</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:bold;font-size:15px;margin-bottom:6px;word-break:break-all">
+              <el-link v-if="aiDialogProduct.product_link" :href="aiDialogProduct.product_link" target="_blank" type="primary">{{ aiDialogProduct.product_name }}</el-link>
+              <span v-else>{{ aiDialogProduct.product_name }}</span>
+            </div>
+            <div style="color:#606266;font-size:13px">选品员：{{ aiDialogProduct.creator?.username }}</div>
+            <div style="color:#606266;font-size:13px">提交时间：{{ aiDialogProduct.submit_time?.slice(0,19).replace('T',' ') }}</div>
+          </div>
+        </div>
+        <el-divider style="margin:12px 0" />
+        <div style="margin-bottom:10px;font-weight:bold">AI 审核提示词</div>
+        <el-input v-model="aiPrompt" type="textarea" :rows="3" placeholder="输入发给AI的审核提示词（留空将使用系统默认提示词）" style="margin-bottom:12px" />
+        <el-button type="primary" :loading="aiLoading" @click="triggerAiReview">
+          {{ aiLoading ? '正在审核...' : '触发 AI 审核' }}
+        </el-button>
+        <div style="margin-top:14px">
+          <div style="font-weight:bold;margin-bottom:6px">AI 审核结果</div>
+          <div v-if="aiLoading" style="color:#909399;font-size:13px">AI 正在分析，请稍候...</div>
+          <div v-else-if="aiResult" style="background:#f5f7fa;border-radius:6px;padding:12px;white-space:pre-wrap;font-size:13px;line-height:1.7;max-height:220px;overflow-y:auto">{{ aiResult }}</div>
+          <div v-else style="color:#909399;font-size:13px">暂无 AI 审核结果</div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="closeAiDialog">关闭</el-button>
+        <el-button type="success" @click="approveFromDialog">通过</el-button>
+        <el-button type="danger" @click="openRejectFromDialog">驳回</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -71,7 +106,7 @@
 import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { reviewApi, userApi } from '@/api'
+import { reviewApi, aiReviewApi, userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
 
@@ -90,6 +125,13 @@ const rejectLoading = ref(false)
 const rejectTargetIds = ref<number[]>([])
 const rejectForm = reactive({ type: 'other', reason: '' })
 
+const aiDialogVisible = ref(false)
+const aiDialogProduct = ref<any>(null)
+const aiPrompt = ref('')
+const aiLoading = ref(false)
+const aiResult = ref<string | null>(null)
+let _aiPollTimer: ReturnType<typeof setInterval> | null = null
+
 async function load() {
   loading.value = true
   try {
@@ -105,8 +147,7 @@ function onSizeChange() { query.page = 1; load() }
 function filterLoad() { query.page = 1; load() }
 
 async function silentRefresh() {
-  // 驳回对话框打开时跳过
-  if (rejectVisible.value) return
+  if (rejectVisible.value || aiDialogVisible.value) return
   try {
     const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
     const incoming = JSON.stringify(res.data.items)
@@ -170,6 +211,70 @@ async function batchApprove() {
   load()
 }
 
+function openAiDialog(row: any) {
+  aiDialogProduct.value = row
+  aiResult.value = row.ai_review_result || null
+  aiLoading.value = false
+  aiPrompt.value = ''
+  aiDialogVisible.value = true
+  aiReviewApi.getDoubaoSettings().then((res: any) => {
+    if (res.data?.prompt && !aiPrompt.value) aiPrompt.value = res.data.prompt
+  }).catch(() => {})
+}
+
+function closeAiDialog(done?: () => void) {
+  if (_aiPollTimer) { clearInterval(_aiPollTimer); _aiPollTimer = null }
+  aiDialogVisible.value = false
+  if (done) done()
+}
+
+async function triggerAiReview() {
+  if (!aiDialogProduct.value) return
+  aiLoading.value = true
+  try {
+    await aiReviewApi.triggerReview(aiDialogProduct.value.id, aiPrompt.value || undefined)
+    _aiPollTimer = setInterval(async () => {
+      try {
+        const res: any = await aiReviewApi.getResult(aiDialogProduct.value.id)
+        if (!res.data.is_pending) {
+          clearInterval(_aiPollTimer!); _aiPollTimer = null
+          aiLoading.value = false
+          aiResult.value = res.data.ai_review_result
+        }
+      } catch {}
+    }, 2000)
+    setTimeout(() => {
+      if (aiLoading.value) {
+        if (_aiPollTimer) { clearInterval(_aiPollTimer); _aiPollTimer = null }
+        aiLoading.value = false
+        ElMessage.warning('AI审核超时，请稍后重试')
+      }
+    }, 120000)
+  } catch (e: any) {
+    aiLoading.value = false
+    ElMessage.error(e || 'AI审核触发失败')
+  }
+}
+
+async function approveFromDialog() {
+  const product = aiDialogProduct.value
+  if (!product) return
+  try {
+    await ElMessageBox.confirm('确认审核通过？')
+    await reviewApi.approve(product.id)
+    ElMessage.success('已通过')
+    closeAiDialog()
+    load()
+  } catch {}
+}
+
+function openRejectFromDialog() {
+  const product = aiDialogProduct.value
+  if (!product) return
+  closeAiDialog()
+  openReject(product)
+}
+
 let _timer: ReturnType<typeof setInterval>
 watch([() => query.page, pageSize, () => query.keyword, () => query.creator_id], () => {
   sessionStorage.setItem('pag:reviews', JSON.stringify({ page: query.page, pageSize: pageSize.value, keyword: query.keyword, creator_id: query.creator_id }))
@@ -184,5 +289,8 @@ onMounted(() => {
   }
   load(); loadSelectors(); _timer = setInterval(silentRefresh, 15000)
 })
-onUnmounted(() => { clearInterval(_timer) })
+onUnmounted(() => {
+  clearInterval(_timer)
+  if (_aiPollTimer) clearInterval(_aiPollTimer)
+})
 </script>

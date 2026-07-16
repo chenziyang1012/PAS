@@ -6,7 +6,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.routers import auth, users, products, reviews, upload, todo
+from app.routers import auth, users, products, reviews, upload, todo, ai_review
 
 Base.metadata.create_all(bind=engine)
 
@@ -21,6 +21,8 @@ def _migrate():
         ("products", "approved_at", "DATETIME"),
         ("products", "product_code", "VARCHAR(100)"),
         ("products", "done_at", "DATETIME"),
+        ("products", "ai_review_result", "TEXT"),
+        ("products", "ai_reviewed_at", "DATETIME"),
         ("reviews", "reject_type", "VARCHAR(20)"),
         ("users", "cookie_1688", "TEXT"),
     ]
@@ -112,3 +114,4 @@ app.include_router(products.router)
 app.include_router(reviews.router)
 app.include_router(upload.router)
 app.include_router(todo.router)
+app.include_router(ai_review.router)

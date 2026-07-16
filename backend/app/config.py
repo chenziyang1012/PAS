@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     PROXY_URL: str = ""  # HTTP proxy for scraping, e.g. http://user:pass@host:port
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://ai.t8star.org/v1"
+    DOUBAO_API_KEY: str = ""
+    DOUBAO_BASE_URL: str = "https://ark.volces.com/api/v3"
+    DOUBAO_MODEL: str = ""
+    DOUBAO_PROMPT: str = ""
 
     class Config:
         env_file = ".env"

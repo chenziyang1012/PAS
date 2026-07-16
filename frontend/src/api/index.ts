@@ -68,6 +68,13 @@ export const reviewApi = {
   reject: (productId: number, reason: string, reject_type?: string) => http.post(`/api/reviews/${productId}/reject`, { reason, reject_type }),
 }
 
+export const aiReviewApi = {
+  getDoubaoSettings: () => http.get('/api/settings/doubao'),
+  setDoubaoSettings: (data: object) => http.put('/api/settings/doubao', data),
+  triggerReview: (productId: number, prompt?: string) => http.post(`/api/reviews/${productId}/ai-review`, { prompt }),
+  getResult: (productId: number) => http.get(`/api/reviews/${productId}/ai-result`),
+}
+
 export const uploadApi = {
   image: (file: File) => {
     const form = new FormData()

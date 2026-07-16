@@ -90,6 +90,8 @@ class ProductOut(BaseModel):
     creator_id: int
     product_code: str | None = None
     done_at: datetime | None = None
+    ai_review_result: str | None = None
+    ai_reviewed_at: datetime | None = None
     submit_time: datetime | None
     created_at: datetime
     updated_at: datetime

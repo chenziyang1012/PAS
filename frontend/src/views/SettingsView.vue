@@ -91,6 +91,34 @@
 
       <template v-if="auth.user?.role === 'admin'">
         <el-divider />
+        <h3 style="margin-bottom:16px">AI 审核设置 — 豆包视觉（管理员）</h3>
+        <el-alert type="info" :closable="false" style="margin-bottom:16px">
+          <p>配置豆包视觉模型用于辅助审核侵权。产品提交审核时自动触发，也可在待审核列表手动触发。</p>
+          <p style="margin-top:4px">API 地址示例：<code>https://ark.volces.com/api/v3</code>；模型填写推理接入点 ID，格式如 <code>ep-xxxxxxxx-xxxxx</code></p>
+        </el-alert>
+        <el-form label-width="100px" style="max-width:500px">
+          <el-form-item label="API 地址">
+            <el-input v-model="doubaoBaseUrl" placeholder="https://ark.volces.com/api/v3" />
+          </el-form-item>
+          <el-form-item label="API Key">
+            <el-input v-model="doubaoApiKey" placeholder="输入新 Key 即覆盖，留空不修改" show-password />
+          </el-form-item>
+          <el-form-item label="模型 ID">
+            <el-input v-model="doubaoModel" placeholder="ep-xxxxxxxx-xxxxx" />
+          </el-form-item>
+          <el-form-item label="默认提示词">
+            <el-input v-model="doubaoPrompt" type="textarea" :rows="4" placeholder="请分析这个产品图片和名称，判断是否存在侵权风险，并给出建议..." />
+          </el-form-item>
+        </el-form>
+        <div style="margin-left:100px;margin-top:4px;display:flex;align-items:center;gap:8px">
+          <el-button type="primary" :loading="savingDoubao" @click="saveDoubaoSettings">保存设置</el-button>
+          <el-tag v-if="doubaoConfigured" type="success" size="small">已配置</el-tag>
+          <el-tag v-else type="info" size="small">未配置</el-tag>
+        </div>
+      </template>
+
+      <template v-if="auth.user?.role === 'admin'">
+        <el-divider />
         <h3 style="margin-bottom:16px">全局默认 Cookie（管理员）</h3>
         <el-alert type="warning" :closable="false" style="margin-bottom:16px">
           <p>当用户未配置自己的 Cookie 时，系统将使用此全局 Cookie 作为兜底。建议每个用户配置自己的 Cookie。</p>
@@ -139,7 +167,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { productApi, todoApi } from '@/api'
+import { productApi, todoApi, aiReviewApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -167,6 +195,13 @@ const openaiApiKey = ref('')
 const savingOpenai = ref(false)
 const testingOpenai = ref(false)
 const openaiTestResult = ref<{ ok: boolean; msg: string } | null>(null)
+
+const doubaoBaseUrl = ref('')
+const doubaoApiKey = ref('')
+const doubaoModel = ref('')
+const doubaoPrompt = ref('')
+const doubaoConfigured = ref(false)
+const savingDoubao = ref(false)
 
 const bookmarkletTag = ref('')
 
@@ -220,6 +255,32 @@ async function loadStatus() {
       const res: any = await todoApi.getOpenaiSettings()
       if (res.data.base_url) openaiBaseUrl.value = res.data.base_url
     } catch {}
+    try {
+      const res: any = await aiReviewApi.getDoubaoSettings()
+      doubaoConfigured.value = res.data.configured
+      if (res.data.base_url) doubaoBaseUrl.value = res.data.base_url
+      if (res.data.model) doubaoModel.value = res.data.model
+      if (res.data.prompt) doubaoPrompt.value = res.data.prompt
+    } catch {}
+  }
+}
+
+async function saveDoubaoSettings() {
+  savingDoubao.value = true
+  try {
+    await aiReviewApi.setDoubaoSettings({
+      api_key: doubaoApiKey.value.trim(),
+      base_url: doubaoBaseUrl.value.trim(),
+      model: doubaoModel.value.trim(),
+      prompt: doubaoPrompt.value,
+    })
+    ElMessage.success('豆包设置已保存')
+    doubaoConfigured.value = !!(doubaoApiKey.value.trim() || doubaoConfigured.value) && !!doubaoModel.value.trim()
+    if (doubaoApiKey.value.trim()) doubaoApiKey.value = ''
+  } catch (e: any) {
+    ElMessage.error(e || '保存失败')
+  } finally {
+    savingDoubao.value = false
   }
 }
 

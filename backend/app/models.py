@@ -38,6 +38,8 @@ class Product(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     product_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ai_review_result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
