@@ -307,21 +307,36 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
             """提取 alicdn 图片的核心标识，去掉尺寸/质量/格式后缀用于去重。
             1688 常见变体:
               xxx.jpg_220x220.jpg   xxx.jpg_q90.jpg   xxx.jpg_.webp
+              xxx.220x220.jpg       xxx.search.jpg     xxx.summ.jpg
               xxx_220x220.jpg       xxx.jpg?x-oss-process=...
             """
             u = u.split('?')[0]
             # 去掉 .ext_NNxNN.ext  .ext_qNN.ext  .ext_.ext 这类二段式后缀
             u = re.sub(r'\.(jpe?g|png|webp)_.*$', r'.\1', u, flags=re.IGNORECASE)
-            # 去掉 _NNxNN  _qNN
+            # 去掉 .NNxNN.ext  .search.ext  .summ.ext（点号式变体后缀）
+            u = re.sub(r'\.\d{1,4}x\d{1,4}\.\w+$', '', u)
+            u = re.sub(r'\.search\.\w+$', '', u, flags=re.IGNORECASE)
+            u = re.sub(r'\.summ\.\w+$', '', u, flags=re.IGNORECASE)
+            # 去掉 _NNxNN  _qNN（下划线式）
             u = re.sub(r'_\d{1,4}x\d{1,4}', '', u)
             u = re.sub(r'_q\d+', '', u)
+            # 去掉末尾扩展名，统一比较基础路径
+            u = re.sub(r'\.\w+$', '', u)
             return u
 
         def _url_size(u: str) -> int:
             """从URL中提取尺寸数字，用于比较大小。无尺寸后缀视为原图，返回最大值。"""
+            # _NNxNN 格式
             m = re.search(r'_(\d{1,4})x(\d{1,4})', u)
             if m:
                 return int(m.group(1)) * int(m.group(2))
+            # .NNxNN.ext 格式
+            m = re.search(r'\.(\d{1,4})x(\d{1,4})\.\w+$', u)
+            if m:
+                return int(m.group(1)) * int(m.group(2))
+            # .search .summ 等非尺寸变体，比缩图大但比原图小
+            if re.search(r'\.(search|summ)\.\w+$', u, re.IGNORECASE):
+                return 500000
             return 99999999  # 无尺寸后缀 = 原图，最大
 
         seen_keys: dict = {}  # key -> index in result
