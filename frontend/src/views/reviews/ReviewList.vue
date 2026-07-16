@@ -409,6 +409,7 @@ onUnmounted(() => {
   border: 1px solid #dcdfe6;
   padding: 6px 10px;
   text-align: left;
+  white-space: nowrap;
 }
 .ai-result-body :deep(th) {
   background: #ebeef5;
