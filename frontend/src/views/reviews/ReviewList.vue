@@ -82,7 +82,7 @@
         </div>
         <el-divider style="margin:12px 0" />
         <div style="margin-bottom:10px;font-weight:bold">AI 审核提示词</div>
-        <el-input v-model="aiPrompt" type="textarea" :rows="3" placeholder="输入发给AI的审核提示词（留空将使用系统默认提示词）" style="margin-bottom:12px" />
+        <el-input v-model="aiPrompt" type="textarea" :rows="6" placeholder="输入发给AI的审核提示词（留空将使用系统默认提示词）" style="margin-bottom:12px" />
         <el-button type="primary" :loading="aiLoading" @click="triggerAiReview">
           {{ aiLoading ? '正在审核...' : '触发 AI 审核' }}
         </el-button>
