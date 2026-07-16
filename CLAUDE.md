@@ -91,3 +91,7 @@ cd /opt/PAS && git pull && cd frontend && npm run build && systemctl restart prs
 ## Debugging
 
 遇到无法本地复现的问题时，主动向用户索要所需信息（如截图、接口返回数据、日志等），不要猜测。
+
+## Proactive Suggestions
+
+主动思考用户没有想到的地方，包括但不限于：边界情况、潜在 bug、交互一致性问题、与已有功能的冲突。在实现完成后或讨论需求时，主动向用户提出这些建议。
