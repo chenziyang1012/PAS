@@ -36,7 +36,7 @@ def list_todo(
     if creator_username:
         q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
     total = q.count()
-    items = q.order_by(Product.approved_at.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Product.approved_at.asc(), Product.id.asc()).offset((page - 1) * page_size).limit(page_size).all()
     return Resp(data={
         "items": [_todo_item(p, db) for p in items],
         "total": total,
