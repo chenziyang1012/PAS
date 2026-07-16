@@ -426,6 +426,24 @@ def toggle_complete(
     db.commit()
     return Resp(data={"is_completed": True})
 
+@router.patch("/{product_id}/product-code")
+def update_product_code(
+    product_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    if current_user.role != "admin" and product.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权操作")
+    if product.special_tag != "done":
+        raise HTTPException(status_code=400, detail="只能修改已做产品的产品ID")
+    product.product_code = (body.get("product_code") or "").strip() or None
+    db.commit()
+    return Resp(data={"product_code": product.product_code})
+
 @router.delete("/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     product = db.get(Product, product_id)

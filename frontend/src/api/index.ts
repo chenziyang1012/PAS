@@ -39,6 +39,7 @@ export const productApi = {
   create: (data: object) => http.post('/api/products', data),
   get: (id: number) => http.get(`/api/products/${id}`),
   update: (id: number, data: object) => http.put(`/api/products/${id}`, data),
+  updateProductCode: (id: number, product_code: string) => http.patch(`/api/products/${id}/product-code`, { product_code }),
   delete: (id: number) => http.delete(`/api/products/${id}`),
   submitReview: (id: number) => http.post(`/api/products/${id}/submit-review`),
   toggleComplete: (id: number) => http.patch(`/api/products/${id}/complete`),

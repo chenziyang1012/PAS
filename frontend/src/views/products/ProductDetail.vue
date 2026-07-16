@@ -17,6 +17,13 @@
         <PreviewImage v-for="img in product.images" :key="img.id" :src="img.url" style="margin-right:8px;vertical-align:top" />
       </div>
 
+      <!-- 已做产品可修改产品ID -->
+      <div v-if="product.special_tag === 'done'" style="margin-top:20px;display:flex;align-items:center;gap:8px">
+        <span style="font-weight:bold;white-space:nowrap">产品ID：</span>
+        <el-input v-model="editProductCode" style="width:200px" placeholder="填写公司产品ID" clearable />
+        <el-button type="primary" size="small" :loading="savingCode" @click="saveProductCode">保存</el-button>
+      </div>
+
       <template v-if="product.reviews?.length">
         <div style="margin-top:24px;font-weight:bold">审核记录</div>
         <el-timeline style="margin-top:12px">
@@ -38,6 +45,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { productApi } from '@/api'
 import PreviewImage from '@/components/PreviewImage.vue'
 
@@ -45,6 +53,8 @@ const route = useRoute()
 const router = useRouter()
 const product = ref<any>(null)
 const loading = ref(false)
+const editProductCode = ref('')
+const savingCode = ref(false)
 const statusLabel: Record<string,string> = { draft:'草稿', pending_review:'待审核', approved:'已通过', rejected:'已驳回' }
 const statusType: Record<string,string> = { draft:'info', pending_review:'warning', approved:'success', rejected:'danger' }
 
@@ -53,6 +63,17 @@ onMounted(async () => {
   try {
     const res: any = await productApi.get(Number(route.params.id))
     product.value = res.data
+    editProductCode.value = res.data.product_code || ''
   } finally { loading.value = false }
 })
+
+async function saveProductCode() {
+  savingCode.value = true
+  try {
+    await productApi.updateProductCode(Number(route.params.id), editProductCode.value)
+    product.value.product_code = editProductCode.value || null
+    ElMessage.success('产品ID已保存')
+  } catch (e: any) { ElMessage.error(e || '保存失败') }
+  finally { savingCode.value = false }
+}
 </script>
