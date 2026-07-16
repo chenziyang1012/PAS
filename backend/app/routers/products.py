@@ -278,7 +278,15 @@ def from_bookmarklet(
         db.add(ProductImage(product_id=product.id, url=body.main_image, sort_order=0))
     db.commit()
     db.refresh(product)
-    return Resp(data=ProductOut.model_validate(product))
+    from app.config import settings as _settings
+    ai_review_queued = False
+    if _settings.DOUBAO_API_KEY and _settings.DOUBAO_MODEL and _settings.DOUBAO_PROMPT:
+        from app.routers.ai_review import enqueue_ai_review
+        enqueue_ai_review(product.id)
+        ai_review_queued = True
+    data = ProductOut.model_validate(product).model_dump()
+    data["ai_review_queued"] = ai_review_queued
+    return Resp(data=data)
 
 @router.get("/settings/cookie-1688")
 def get_cookie_1688(current_user: User = Depends(require_roles("admin"))):

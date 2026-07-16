@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import require_roles
+from app.auth import require_roles, get_current_user
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import Product, User
@@ -199,7 +199,7 @@ def trigger_ai_review(
 def get_ai_result(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("reviewer", "admin")),
+    current_user: User = Depends(get_current_user),
 ):
     product = db.get(Product, product_id)
     if not product:
