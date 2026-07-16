@@ -281,6 +281,9 @@ const completeDialogVisible = ref(false)
 const completeProductCode = ref('')
 const completeLoading = ref(false)
 const completeTargetRow = ref<any>(null)
+
+// 生图
+const genVisible = ref(false)
 const genProduct = ref<any>(null)
 const genLoading = ref(false)
 const scraping = ref(false)
