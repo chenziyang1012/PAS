@@ -301,19 +301,25 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
         if "punish-component" in html or "g.alicdn.com/sd/punish" in html:
             return {"error": "1688 触发了安全验证，请稍后重试或更换Cookie"}
 
-        seen: set = set()
         result: list = []
 
         def _normalize_alicdn(u: str) -> str:
             """提取 alicdn 图片的核心标识，去掉尺寸/质量/格式后缀用于去重。"""
-            # 去掉查询参数
             u = u.split('?')[0]
-            # 去掉常见的尺寸/质量后缀: _220x220.jpg, _.webp, _q90.jpg, _800x800.jpg_.webp 等
             u = re.sub(r'_\d{1,4}x\d{1,4}', '', u)
             u = re.sub(r'_q\d+', '', u)
-            u = re.sub(r'\._\.\w+$', '', u)  # _.webp 结尾
-            u = re.sub(r'\.(\w+)_\.\w+$', r'.\1', u)  # .jpg_.webp → .jpg
+            u = re.sub(r'\._\.\w+$', '', u)
+            u = re.sub(r'\.(\w+)_\.\w+$', r'.\1', u)
             return u
+
+        def _url_size(u: str) -> int:
+            """从URL中提取尺寸数字，用于比较大小。无尺寸后缀视为原图，返回最大值。"""
+            m = re.search(r'_(\d{1,4})x(\d{1,4})', u)
+            if m:
+                return int(m.group(1)) * int(m.group(2))
+            return 99999999  # 无尺寸后缀 = 原图，最大
+
+        seen_keys: dict = {}  # key -> index in result
 
         def add(u: str):
             if not u:
@@ -329,8 +335,13 @@ def scrape_all_images(url: str, cookie_override: str | None = None) -> dict:
             if re.search(r'_\d{1,2}x\d{1,2}\.', u):  # skip tiny icons
                 return
             key = _normalize_alicdn(u)
-            if key not in seen:
-                seen.add(key)
+            if key in seen_keys:
+                # 保留更大尺寸的
+                idx = seen_keys[key]
+                if _url_size(u) > _url_size(result[idx]):
+                    result[idx] = u
+            else:
+                seen_keys[key] = len(result)
                 result.append(u)
 
         # 1. Main product carousel images from named list fields
