@@ -89,7 +89,7 @@
         <div style="margin-top:14px">
           <div style="font-weight:bold;margin-bottom:6px">AI 审核结果</div>
           <div v-if="aiLoading" style="color:#909399;font-size:13px">AI 正在分析，请稍候...</div>
-          <div v-else-if="aiResult" style="background:#f5f7fa;border-radius:6px;padding:12px;white-space:pre-wrap;font-size:13px;line-height:1.7;max-height:360px;overflow-y:auto">{{ aiResult }}</div>
+          <div v-else-if="aiResult" class="ai-result-body" v-html="aiResultHtml"></div>
           <div v-else style="color:#909399;font-size:13px">暂无 AI 审核结果</div>
         </div>
       </div>
@@ -103,9 +103,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { marked } from 'marked'
 import { reviewApi, aiReviewApi, userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
@@ -124,6 +125,8 @@ const rejectVisible = ref(false)
 const rejectLoading = ref(false)
 const rejectTargetIds = ref<number[]>([])
 const rejectForm = reactive({ type: 'other', reason: '' })
+
+const aiResultHtml = computed(() => aiResult.value ? marked(aiResult.value) as string : '')
 
 const aiDialogVisible = ref(false)
 const aiDialogProduct = ref<any>(null)
@@ -312,3 +315,32 @@ onUnmounted(() => {
   if (_aiPollTimer) clearInterval(_aiPollTimer)
 })
 </script>
+
+<style scoped>
+.ai-result-body {
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.ai-result-body :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.ai-result-body :deep(th),
+.ai-result-body :deep(td) {
+  border: 1px solid #dcdfe6;
+  padding: 6px 10px;
+  text-align: left;
+}
+.ai-result-body :deep(th) {
+  background: #ebeef5;
+  font-weight: bold;
+}
+.ai-result-body :deep(p) { margin: 4px 0; }
+.ai-result-body :deep(strong) { font-weight: bold; }
+</style>
