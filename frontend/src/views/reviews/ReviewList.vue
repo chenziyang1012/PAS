@@ -65,7 +65,7 @@
         <el-button type="danger" :loading="rejectLoading" @click="doReject">确认驳回</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="aiDialogVisible" title="AI 辅助审核" width="580px" :before-close="closeAiDialog">
+    <el-dialog v-model="aiDialogVisible" title="AI 辅助审核" width="780px" :before-close="closeAiDialog">
       <div v-if="aiDialogProduct">
         <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-start">
           <PreviewImage v-if="aiDialogProduct.main_image || aiDialogProduct.images?.[0]?.url"
@@ -89,7 +89,7 @@
         <div style="margin-top:14px">
           <div style="font-weight:bold;margin-bottom:6px">AI 审核结果</div>
           <div v-if="aiLoading" style="color:#909399;font-size:13px">AI 正在分析，请稍候...</div>
-          <div v-else-if="aiResult" style="background:#f5f7fa;border-radius:6px;padding:12px;white-space:pre-wrap;font-size:13px;line-height:1.7;max-height:220px;overflow-y:auto">{{ aiResult }}</div>
+          <div v-else-if="aiResult" style="background:#f5f7fa;border-radius:6px;padding:12px;white-space:pre-wrap;font-size:13px;line-height:1.7;max-height:360px;overflow-y:auto">{{ aiResult }}</div>
           <div v-else style="color:#909399;font-size:13px">暂无 AI 审核结果</div>
         </div>
       </div>
