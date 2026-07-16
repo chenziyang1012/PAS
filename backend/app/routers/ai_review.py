@@ -152,6 +152,27 @@ def set_doubao_settings(body: dict = Body(...), current_user: User = Depends(req
     return Resp(message="配置已保存")
 
 
+@router.post("/api/reviews/batch-ai-review")
+def batch_ai_review(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("reviewer", "admin")),
+):
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="请选择至少一个产品")
+    if not settings.DOUBAO_API_KEY or not settings.DOUBAO_MODEL:
+        raise HTTPException(status_code=400, detail="未配置豆包 API Key 或模型，请在系统设置中配置")
+    if not settings.DOUBAO_PROMPT:
+        raise HTTPException(status_code=400, detail="请先在系统设置中配置审核提示词")
+    queued = 0
+    for product_id in ids:
+        if db.get(Product, product_id):
+            enqueue_ai_review(product_id)
+            queued += 1
+    return Resp(data={"queued": queued})
+
+
 @router.post("/api/reviews/{product_id}/ai-review")
 def trigger_ai_review(
     product_id: int,

@@ -12,6 +12,7 @@
         <span style="color:#606266">已选 {{ selected.length }} 项</span>
         <el-button size="small" type="success" @click="batchApprove">批量通过</el-button>
         <el-button size="small" type="danger" @click="openBatchReject">批量驳回</el-button>
+        <el-button size="small" type="warning" @click="batchAiReview">批量AI审核</el-button>
       </div>
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
@@ -34,6 +35,18 @@
         </el-table-column>
         <el-table-column prop="submit_time" label="提交时间" width="150">
           <template #default="{row}">{{ row.submit_time?.slice(0,19).replace('T',' ') }}</template>
+        </el-table-column>
+        <el-table-column label="AI结论" width="90">
+          <template #default="{row}">
+            <el-tag v-if="isPendingAi(row)" type="info" size="small" style="animation:pulse 1.5s infinite">审核中</el-tag>
+            <template v-else-if="row.ai_review_result">
+              <el-tag v-if="riskLevel(row)==='低'" type="success" size="small">低风险</el-tag>
+              <el-tag v-else-if="riskLevel(row)==='高'" type="danger" size="small">高风险</el-tag>
+              <el-tag v-else-if="riskLevel(row)==='error'" type="danger" size="small">失败</el-tag>
+              <el-tag v-else type="warning" size="small">中风险</el-tag>
+            </template>
+            <span v-else style="color:#c0c4cc;font-size:12px">未审核</span>
+          </template>
         </el-table-column>
         <el-table-column label="操作" width="280">
           <template #default="{row}">
@@ -127,6 +140,24 @@ const rejectTargetIds = ref<number[]>([])
 const rejectForm = reactive({ type: 'other', reason: '' })
 
 const aiResultHtml = computed(() => aiResult.value ? marked(aiResult.value) as string : '')
+
+const pendingAiIds = ref<number[]>([])
+let _batchPollTimer: ReturnType<typeof setInterval> | null = null
+
+function isPendingAi(row: any): boolean {
+  return pendingAiIds.value.includes(row.id)
+}
+
+function riskLevel(row: any): '低' | '中' | '高' | 'error' | null {
+  const r = row.ai_review_result
+  if (!r) return null
+  if (r.startsWith('AI审核失败') || r.startsWith('无法审核')) return 'error'
+  const m = r.match(/【(低|中|高)】/)
+  if (m) return m[1] as '低' | '中' | '高'
+  if (/高[风险度]|高度风险/.test(r)) return '高'
+  if (/低[风险度]|低度风险/.test(r)) return '低'
+  return '中'
+}
 
 const aiDialogVisible = ref(false)
 const aiDialogProduct = ref<any>(null)
@@ -295,10 +326,33 @@ async function approveFromDialog() {
 }
 
 function openRejectFromDialog() {
-  const product = aiDialogProduct.value
-  if (!product) return
+  if (!aiDialogProduct.value) return
   closeAiDialog()
-  openReject(product)
+  openReject(aiDialogProduct.value)
+}
+
+async function batchAiReview() {
+  const ids = selected.value.map((r: any) => r.id)
+  if (!ids.length) return
+  try {
+    await aiReviewApi.batchTrigger(ids)
+    pendingAiIds.value = [...new Set([...pendingAiIds.value, ...ids])]
+    ElMessage.success(`已触发 ${ids.length} 个产品的 AI 审核`)
+    if (!_batchPollTimer) {
+      _batchPollTimer = setInterval(async () => {
+        await silentRefresh()
+        pendingAiIds.value = pendingAiIds.value.filter(id => {
+          const row = list.value.find((r: any) => r.id === id)
+          return row && !row.ai_review_result
+        })
+        if (pendingAiIds.value.length === 0) {
+          clearInterval(_batchPollTimer!); _batchPollTimer = null
+        }
+      }, 3000)
+    }
+  } catch (e: any) {
+    ElMessage.error(e || '批量AI审核触发失败')
+  }
 }
 
 let _timer: ReturnType<typeof setInterval>
@@ -318,6 +372,7 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(_timer)
   if (_aiPollTimer) clearInterval(_aiPollTimer)
+  if (_batchPollTimer) clearInterval(_batchPollTimer)
 })
 </script>
 
