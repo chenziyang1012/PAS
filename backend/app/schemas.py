@@ -89,6 +89,7 @@ class ProductOut(BaseModel):
     special_tag: str | None
     creator_id: int
     product_code: str | None = None
+    done_at: datetime | None = None
     submit_time: datetime | None
     created_at: datetime
     updated_at: datetime

@@ -92,11 +92,11 @@ def list_done(
     if creator_username:
         q = q.join(User, Product.creator_id == User.id).filter(User.username.contains(creator_username))
     if date_from:
-        q = q.filter(func.date(Product.updated_at) >= date_from)
+        q = q.filter(func.date(Product.done_at) >= date_from)
     if date_to:
-        q = q.filter(func.date(Product.updated_at) <= date_to)
+        q = q.filter(func.date(Product.done_at) <= date_to)
     total = q.count()
-    items = q.order_by(Product.updated_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Product.done_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return Resp(data={"total": total, "items": [ProductOut.model_validate(p) for p in items]})
 
 @router.get("/infringe")

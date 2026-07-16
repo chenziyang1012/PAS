@@ -20,6 +20,7 @@ def _migrate():
         ("products", "submit_time", "DATETIME"),
         ("products", "approved_at", "DATETIME"),
         ("products", "product_code", "VARCHAR(100)"),
+        ("products", "done_at", "DATETIME"),
         ("reviews", "reject_type", "VARCHAR(20)"),
         ("users", "cookie_1688", "TEXT"),
     ]
@@ -58,6 +59,19 @@ def _backfill_approved_at():
             pass
 
 _backfill_approved_at()
+
+def _backfill_done_at():
+    """已做产品 done_at 为空时用 updated_at 回填。"""
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "UPDATE products SET done_at = updated_at WHERE special_tag='done' AND done_at IS NULL"
+            ))
+            conn.commit()
+        except Exception:
+            pass
+
+_backfill_done_at()
 
 def _cleanup_stale_pending():
     """Mark any pending/generating generated_images as failed on startup — they belong to threads that died with a previous process."""

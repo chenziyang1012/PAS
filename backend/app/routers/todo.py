@@ -119,6 +119,7 @@ def mark_complete(
         raise HTTPException(status_code=400, detail="只有已通过审核的产品才能标记完成")
     product.is_completed = True
     product.special_tag = "done"
+    product.done_at = datetime.now(timezone.utc)
     if product_code:
         product.product_code = product_code.strip()
     _save_gen_to_product_images(db, product_id)
