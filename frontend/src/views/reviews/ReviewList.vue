@@ -2,8 +2,8 @@
   <div>
     <el-card>
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <el-input v-model="query.keyword" placeholder="产品名称" clearable style="width:180px" @change="load" />
-        <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="load">
+        <el-input v-model="query.keyword" placeholder="产品名称" clearable style="width:180px" @change="filterLoad" />
+        <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="filterLoad">
           <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
         </el-select>
       </div>
@@ -101,6 +101,8 @@ async function load() {
 }
 
 function onSizeChange() { query.page = 1; load() }
+
+function filterLoad() { query.page = 1; load() }
 
 async function silentRefresh() {
   // 驳回对话框打开时跳过

@@ -3,9 +3,9 @@
     <el-card>
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="load" />
-          <el-input v-model="query.product_code" placeholder="产品ID" clearable style="width:120px" @change="load" />
-          <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="load">
+          <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="filterLoad" />
+          <el-input v-model="query.product_code" placeholder="产品ID" clearable style="width:120px" @change="filterLoad" />
+          <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="filterLoad">
             <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
           </el-select>
           <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="完成开始" end-placeholder="完成结束" style="width:220px" @change="onDateChange" value-format="YYYY-MM-DD" />
@@ -104,7 +104,7 @@ function onSizeChange() { query.page = 1; load() }
 function onDateChange(val: [string, string] | null) {
   query.date_from = val?.[0] || undefined
   query.date_to = val?.[1] || undefined
-  load()
+  filterLoad()
 }
 
 async function load() {
@@ -114,6 +114,8 @@ async function load() {
     list.value = res.data.items; total.value = res.data.total
   } finally { loading.value = false }
 }
+
+function filterLoad() { query.page = 1; load() }
 
 async function silentRefresh() {
   if (bulkImportVisible.value) return
