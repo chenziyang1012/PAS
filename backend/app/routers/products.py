@@ -30,6 +30,9 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 def _check_product_access(product: Product, user: User):
     if user.role == "admin":
         return
+    # 已做/侵权/其他列表的产品，所有角色都可查看详情
+    if product.special_tag in ("done", "infringe", "other"):
+        return
     if user.role == "selector" and product.creator_id != user.id:
         raise HTTPException(status_code=403, detail="无权访问")
     if user.role == "reviewer" and product.status not in ("pending_review", "approved", "rejected"):
