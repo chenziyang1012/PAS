@@ -12,6 +12,15 @@ from app.schemas import (
 )
 from app.auth import get_current_user, require_roles
 from app.scraper import scrape_product
+import os, shutil
+
+
+def _cleanup_generated_files(product_id: int):
+    """删除产品对应的生成图片文件夹。"""
+    from app.config import settings
+    gen_dir = os.path.join(settings.UPLOAD_DIR, "generated", str(product_id))
+    if os.path.isdir(gen_dir):
+        shutil.rmtree(gen_dir, ignore_errors=True)
 
 from sqlalchemy import or_
 
@@ -193,6 +202,7 @@ def bulk_delete(
         if p.creator_id != current_user.id and current_user.role != "admin":
             raise HTTPException(status_code=403, detail=f"无权删除产品 {p.id}")
     for p in products:
+        _cleanup_generated_files(p.id)
         db.delete(p)
     db.commit()
     return Resp(data={"deleted": len(products)})
@@ -419,6 +429,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=403, detail="无权删除")
     if current_user.role != "admin" and product.status != "draft":
         raise HTTPException(status_code=400, detail="只能删除草稿状态产品")
+    _cleanup_generated_files(product_id)
     db.delete(product)
     db.commit()
     return Resp()
