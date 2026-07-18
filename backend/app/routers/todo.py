@@ -18,19 +18,20 @@ def list_todo(
     page_size: int = 20,
     keyword: str = "",
     creator_username: str = "",
+    creator_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role == "reviewer":
-        raise HTTPException(status_code=403, detail="无权访问")
     q = db.query(Product).filter(
         Product.status == "approved",
         Product.special_tag.is_(None),
         Product.is_completed == False,
     )
-    # 选品员只看自己的
+    # 选品员只看自己的；审核员/管理员可看全部
     if current_user.role == "selector":
         q = q.filter(Product.creator_id == current_user.id)
+    elif creator_id:
+        q = q.filter(Product.creator_id == creator_id)
     if keyword:
         q = q.filter(Product.product_name.contains(keyword))
     if creator_username:
@@ -108,12 +109,12 @@ def mark_complete(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("selector", "admin"):
+    if current_user.role not in ("selector", "reviewer", "admin"):
         raise HTTPException(status_code=403, detail="无权操作")
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="产品不存在")
-    if current_user.role != "admin" and product.creator_id != current_user.id:
+    if current_user.role == "selector" and product.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作")
     if product.status != "approved":
         raise HTTPException(status_code=400, detail="只有已通过审核的产品才能标记完成")
@@ -149,14 +150,14 @@ def batch_complete(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("selector", "admin"):
+    if current_user.role not in ("selector", "reviewer", "admin"):
         raise HTTPException(status_code=403, detail="无权操作")
     ids = body.get("ids", [])
     for pid in ids:
         product = db.get(Product, pid)
         if not product:
             continue
-        if current_user.role != "admin" and product.creator_id != current_user.id:
+        if current_user.role == "selector" and product.creator_id != current_user.id:
             continue
         if product.status != "approved":
             continue
@@ -334,7 +335,7 @@ def get_generated(product_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.post("/{product_id}/generate")
-def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(require_roles("selector", "admin"))):
+def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), current_user: User = Depends(require_roles("selector", "reviewer", "admin"))):
     """触发生图 body: { template_id: int, mode: 'both'|'no_logo'|'with_logo' }"""
     from app.config import settings
     if not settings.OPENAI_API_KEY:

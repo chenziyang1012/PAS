@@ -4,9 +4,12 @@
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="load" />
+          <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="filterLoad">
+            <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
+          </el-select>
         </div>
         <div style="display:flex;gap:8px">
-          <el-button @click="bulkImportVisible=true">批量导入链接</el-button>
+          <el-button v-if="auth.user?.role !== 'reviewer'" @click="bulkImportVisible=true">批量导入链接</el-button>
         </div>
       </div>
 
@@ -257,7 +260,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
-import { todoApi, uploadApi, productApi } from '@/api'
+import { todoApi, uploadApi, productApi, userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import PreviewImage from '@/components/PreviewImage.vue'
 
@@ -268,7 +271,18 @@ const total = ref(0)
 const loading = ref(false)
 const selected = ref<any[]>([])
 const pageSize = ref(20)
-const query = reactive({ page: 1, keyword: '' })
+const query = reactive({ page: 1, keyword: '', creator_id: undefined as number | undefined })
+const selectors = ref<any[]>([])
+
+function filterLoad() { query.page = 1; load() }
+
+async function loadSelectors() {
+  if (auth.user?.role === 'selector') return
+  try {
+    const res: any = await userApi.listSelectors()
+    selectors.value = res.data?.items || []
+  } catch {}
+}
 
 // 批量导入
 const bulkImportVisible = ref(false)
@@ -731,13 +745,17 @@ watch(genVisible, (newVal, oldVal) => {
 })
 
 let _timer: ReturnType<typeof setInterval>
-watch([() => query.page, pageSize], () => {
-  sessionStorage.setItem('pag:todo', JSON.stringify({ page: query.page, pageSize: pageSize.value }))
+watch([() => query.page, pageSize, () => query.creator_id], () => {
+  sessionStorage.setItem('pag:todo', JSON.stringify({ page: query.page, pageSize: pageSize.value, creator_id: query.creator_id }))
 })
 onMounted(() => {
   const saved = sessionStorage.getItem('pag:todo')
-  if (saved) { const p = JSON.parse(saved); query.page = p.page; pageSize.value = p.pageSize }
-  load(); _timer = setInterval(silentRefresh, 15000)
+  if (saved) {
+    const p = JSON.parse(saved)
+    query.page = p.page; pageSize.value = p.pageSize
+    query.creator_id = p.creator_id ?? undefined
+  }
+  load(); loadSelectors(); _timer = setInterval(silentRefresh, 15000)
 })
 onUnmounted(() => { clearInterval(_timer); if (pollTimer) clearInterval(pollTimer) })
 </script>
