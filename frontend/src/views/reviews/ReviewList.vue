@@ -410,10 +410,8 @@ onUnmounted(() => {
   padding: 6px 10px;
   text-align: left;
 }
-.ai-result-body :deep(th:first-child),
-.ai-result-body :deep(td:first-child),
-.ai-result-body :deep(th:nth-child(2)),
-.ai-result-body :deep(td:nth-child(2)) {
+.ai-result-body :deep(th),
+.ai-result-body :deep(td:first-child) {
   white-space: nowrap;
 }
 .ai-result-body :deep(th) {
