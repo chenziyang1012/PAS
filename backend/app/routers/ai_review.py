@@ -130,7 +130,12 @@ _load_doubao_settings()
 
 
 @router.get("/api/settings/doubao")
-def get_doubao_settings(current_user: User = Depends(require_roles("admin"))):
+def get_doubao_settings(current_user: User = Depends(require_roles("reviewer", "admin"))):
+    if current_user.role == "reviewer":
+        return Resp(data={
+            "prompt": settings.DOUBAO_PROMPT,
+            "configured": bool(settings.DOUBAO_API_KEY and settings.DOUBAO_MODEL),
+        })
     return Resp(data={
         "base_url": settings.DOUBAO_BASE_URL,
         "model": settings.DOUBAO_MODEL,
@@ -155,6 +160,21 @@ def set_doubao_settings(body: dict = Body(...), current_user: User = Depends(req
     settings.DOUBAO_MODEL = data["model"]
     settings.DOUBAO_PROMPT = data["prompt"]
     return Resp(message="配置已保存")
+
+
+@router.patch("/api/settings/doubao/prompt")
+def set_doubao_prompt(body: dict = Body(...), current_user: User = Depends(require_roles("reviewer", "admin"))):
+    import json
+    prompt = body.get("prompt", "")
+    data = {}
+    if os.path.exists(_settings_file):
+        with open(_settings_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    data["prompt"] = prompt
+    with open(_settings_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    settings.DOUBAO_PROMPT = prompt
+    return Resp(message="提示词已保存")
 
 
 @router.post("/api/reviews/batch-ai-review")

@@ -89,6 +89,18 @@
         </div>
       </template>
 
+      <template v-if="auth.user?.role === 'reviewer'">
+        <el-divider />
+        <h3 style="margin-bottom:16px">AI 审核提示词</h3>
+        <el-alert type="info" :closable="false" style="margin-bottom:16px">
+          <p>配置产品审核时发送给 AI 的提示词。修改后立即生效，后续的 AI 审核将使用新提示词。</p>
+        </el-alert>
+        <el-input v-model="doubaoPrompt" type="textarea" :rows="6" placeholder="请分析这个产品图片和名称，判断是否存在侵权风险，并给出建议..." style="max-width:500px" />
+        <div style="margin-top:12px">
+          <el-button type="primary" :loading="savingDoubaoPrompt" @click="saveDoubaoPrompt">保存提示词</el-button>
+        </div>
+      </template>
+
       <template v-if="auth.user?.role === 'admin'">
         <el-divider />
         <h3 style="margin-bottom:16px">AI 审核设置 — 豆包视觉（管理员）</h3>
@@ -202,6 +214,7 @@ const doubaoModel = ref('')
 const doubaoPrompt = ref('')
 const doubaoConfigured = ref(false)
 const savingDoubao = ref(false)
+const savingDoubaoPrompt = ref(false)
 
 const bookmarkletTag = ref('')
 
@@ -263,6 +276,12 @@ async function loadStatus() {
       if (res.data.prompt) doubaoPrompt.value = res.data.prompt
     } catch {}
   }
+  if (auth.user?.role === 'reviewer') {
+    try {
+      const res: any = await aiReviewApi.getDoubaoSettings()
+      if (res.data.prompt) doubaoPrompt.value = res.data.prompt
+    } catch {}
+  }
 }
 
 async function saveDoubaoSettings() {
@@ -281,6 +300,18 @@ async function saveDoubaoSettings() {
     ElMessage.error(e || '保存失败')
   } finally {
     savingDoubao.value = false
+  }
+}
+
+async function saveDoubaoPrompt() {
+  savingDoubaoPrompt.value = true
+  try {
+    await aiReviewApi.setDoubaoPrompt(doubaoPrompt.value)
+    ElMessage.success('提示词已保存')
+  } catch (e: any) {
+    ElMessage.error(e || '保存失败')
+  } finally {
+    savingDoubaoPrompt.value = false
   }
 }
 

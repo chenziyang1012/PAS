@@ -71,6 +71,7 @@ export const reviewApi = {
 export const aiReviewApi = {
   getDoubaoSettings: () => http.get('/api/settings/doubao'),
   setDoubaoSettings: (data: object) => http.put('/api/settings/doubao', data),
+  setDoubaoPrompt: (prompt: string) => http.patch('/api/settings/doubao/prompt', { prompt }),
   triggerReview: (productId: number, prompt?: string) => http.post(`/api/reviews/${productId}/ai-review`, { prompt }),
   batchTrigger: (ids: number[]) => http.post('/api/reviews/batch-ai-review', { ids }),
   getResult: (productId: number) => http.get(`/api/reviews/${productId}/ai-result`),

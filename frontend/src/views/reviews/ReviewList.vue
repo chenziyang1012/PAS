@@ -182,6 +182,7 @@ function filterLoad() { query.page = 1; load() }
 
 async function silentRefresh() {
   if (rejectVisible.value || aiDialogVisible.value) return
+  if (selected.value.length > 0) return
   try {
     const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
     const incoming = JSON.stringify(res.data.items)
@@ -344,7 +345,7 @@ async function batchAiReview() {
         try {
           const res: any = await reviewApi.listPending({ ...query, page_size: pageSize.value })
           const items: any[] = res.data.items
-          if (!rejectVisible.value && !aiDialogVisible.value) {
+          if (!rejectVisible.value && !aiDialogVisible.value && selected.value.length === 0) {
             const _map = new Map(list.value.map((r: any) => [r.id, r]))
             list.value = items.map((row: any) => {
               const ex = _map.get(row.id)
