@@ -10,9 +10,9 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 @router.get("/selectors")
 def list_selectors(
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("admin", "reviewer")),
+    _: User = Depends(get_current_user),
 ):
-    """Return all enabled selector users — accessible to reviewer and admin for filtering."""
+    """Return all enabled selector users — accessible to all logged-in users for filtering."""
     items = db.query(User).filter(User.role == "selector", User.status == "enabled").all()
     return Resp(data={"items": [UserOut.model_validate(u) for u in items]})
 

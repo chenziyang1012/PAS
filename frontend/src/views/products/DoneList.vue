@@ -5,7 +5,7 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <el-input v-model="query.keyword" placeholder="搜索产品名称" clearable style="width:160px" @change="filterLoad" />
           <el-input v-model="query.product_code" placeholder="产品ID" clearable style="width:120px" @change="filterLoad" />
-          <el-select v-if="auth.user?.role !== 'selector'" v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="filterLoad">
+          <el-select v-model="query.creator_id" placeholder="选品员" clearable style="width:120px" @change="filterLoad">
             <el-option v-for="u in selectors" :key="u.id" :label="u.username" :value="u.id" />
           </el-select>
           <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="完成开始" end-placeholder="完成结束" style="width:220px" @change="onDateChange" value-format="YYYY-MM-DD" />
@@ -217,9 +217,7 @@ onMounted(() => {
     query.product_code = p.product_code || ''
     if (p.date_from && p.date_to) { query.date_from = p.date_from; query.date_to = p.date_to; dateRange.value = [p.date_from, p.date_to] }
   }
-  if (auth.user?.role !== 'selector') {
-    userApi.listSelectors().then((res: any) => { selectors.value = res.data?.items || [] })
-  }
+  userApi.listSelectors().then((res: any) => { selectors.value = res.data?.items || [] }).catch(() => {})
   load(); _timer = setInterval(silentRefresh, 15000)
 })
 onUnmounted(() => { clearInterval(_timer) })
