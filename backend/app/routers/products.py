@@ -489,11 +489,4 @@ def submit_review(product_id: int, db: Session = Depends(get_db), current_user: 
     product.status = "pending_review"
     product.submit_time = datetime.now(timezone.utc)
     db.commit()
-    try:
-        from app.config import settings as _s
-        if _s.DOUBAO_API_KEY and _s.DOUBAO_MODEL:
-            from app.routers.ai_review import enqueue_ai_review
-            enqueue_ai_review(product.id)
-    except Exception:
-        pass
     return Resp()
