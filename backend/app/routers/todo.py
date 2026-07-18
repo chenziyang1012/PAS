@@ -353,15 +353,23 @@ def generate_images(product_id: int, body: dict, db: Session = Depends(get_db), 
     if not materials:
         raise HTTPException(status_code=400, detail="请先将素材拖入变体框")
 
-    # 获取提示词模板
+    # 获取提示词模板 + 手动提示词（手动提示词只作用于无Logo版）
     template_id = body.get("template_id")
+    custom_prompt = (body.get("custom_prompt") or "").strip()
+    template_text = None
     if template_id:
         template = db.get(PromptTemplate, template_id)
         if not template:
             raise HTTPException(status_code=404, detail="提示词模板不存在")
-        prompt_text = template.content
+        template_text = template.content
+    if template_text and custom_prompt:
+        prompt_text = f"{template_text}\n{custom_prompt}"
+    elif template_text:
+        prompt_text = template_text
+    elif custom_prompt:
+        prompt_text = custom_prompt
     else:
-        raise HTTPException(status_code=400, detail="请选择提示词模板")
+        raise HTTPException(status_code=400, detail="请选择提示词模板或输入提示词")
 
     logo_template_id = body.get("logo_template_id")
     logo_prompt_text = None

@@ -148,9 +148,10 @@
             <span style="font-size:13px;font-weight:bold">无Logo提示词</span>
             <el-button size="small" text @click="templateDialogVisible=true">管理模板</el-button>
           </div>
-          <el-select v-model="selectedTemplateId" placeholder="选择提示词模板" style="width:100%">
+          <el-select v-model="selectedTemplateId" placeholder="选择提示词模板" clearable style="width:100%">
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
+          <el-input v-model="customPrompt" type="textarea" :rows="3" placeholder="手动输入提示词（选了模板则拼接在模板之后，只对无Logo生图生效）" style="margin-top:8px" />
         </div>
 
         <!-- 有Logo提示词模板 -->
@@ -199,7 +200,7 @@
 
       <template #footer>
         <el-button @click="genVisible=false">关闭</el-button>
-        <el-button type="primary" :loading="generating" @click="doGenerate" :disabled="!selectedTemplateId">开始生图</el-button>
+        <el-button type="primary" :loading="generating" @click="doGenerate" :disabled="!selectedTemplateId && !customPrompt.trim()">开始生图</el-button>
       </template>
     </el-dialog>
 
@@ -331,6 +332,7 @@ const genResults = ref<any[]>([])
 const prevUrls = reactive<{ no_logo: string; with_logo: string }>({ no_logo: '', with_logo: '' })
 const selectedTemplateId = ref<number | null>(null)
 const selectedLogoTemplateId = ref<number | null>(null)
+const customPrompt = ref('')
 const slots = reactive({
   main: ['', ''] as string[],
   scene: [''] as string[],
@@ -600,7 +602,7 @@ function isUsed(url: string) {
 
 // 生图
 async function doGenerate() {
-  if (!selectedTemplateId.value) return ElMessage.warning('请选择提示词模板')
+  if (!selectedTemplateId.value && !customPrompt.value.trim()) return ElMessage.warning('请选择提示词模板或输入提示词')
   if (!genProduct.value) return
 
   if (!slots.variant.some(Boolean)) return ElMessage.warning('请至少拖入一张素材')
@@ -614,7 +616,7 @@ async function doGenerate() {
   generating.value = true
   try {
     const mode = selectedLogoTemplateId.value ? 'both' : 'no_logo'
-    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode, selectedLogoTemplateId.value ?? undefined)
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value ?? undefined, mode, selectedLogoTemplateId.value ?? undefined, customPrompt.value.trim() || undefined)
     pollGenStatus()
   } catch (e: any) {
     const msg = typeof e === 'string' ? e : ''
@@ -628,7 +630,7 @@ async function doGenerate() {
 
 // 单独重新生成某一版，旧图保留显示
 async function regenerate(mode: 'no_logo' | 'with_logo') {
-  if (!selectedTemplateId.value) return ElMessage.warning('请选择提示词模板')
+  if (!selectedTemplateId.value && !customPrompt.value.trim()) return ElMessage.warning('请选择提示词模板或输入提示词')
   if (!genProduct.value) return
   if (!slots.variant.some(Boolean)) return ElMessage.warning('请至少拖入一张素材')
 
@@ -639,7 +641,7 @@ async function regenerate(mode: 'no_logo' | 'with_logo') {
   prevUrls[mode] = old?.status === 'done' && old?.url ? old.url : ''
 
   try {
-    await todoApi.generate(genProduct.value.id, selectedTemplateId.value, mode, selectedLogoTemplateId.value ?? undefined)
+    await todoApi.generate(genProduct.value.id, selectedTemplateId.value ?? undefined, mode, selectedLogoTemplateId.value ?? undefined, customPrompt.value.trim() || undefined)
     pollGenStatus()
   } catch (e: any) {
     prevUrls[mode] = ''
