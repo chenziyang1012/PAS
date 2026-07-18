@@ -64,7 +64,7 @@ def _do_ai_review(product_id: int, prompt: str):
         text_content = {"type": "text", "text": f"产品名称：{product.product_name}\n\n{prompt}"}
 
         from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url, timeout=60)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=120)
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": [img_content, text_content]}],
@@ -102,7 +102,9 @@ def _worker():
             _queue.task_done()
 
 
-threading.Thread(target=_worker, daemon=True).start()
+_NUM_WORKERS = 10
+for _i in range(_NUM_WORKERS):
+    threading.Thread(target=_worker, daemon=True, name=f"ai-review-{_i}").start()
 
 _settings_file = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
