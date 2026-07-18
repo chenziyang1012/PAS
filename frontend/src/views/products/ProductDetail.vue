@@ -5,6 +5,7 @@
         <el-descriptions-item label="产品名称">{{ product.product_name }}</el-descriptions-item>
         <el-descriptions-item label="产品类目">{{ product.category }}</el-descriptions-item>
         <el-descriptions-item label="产品链接"><a :href="product.product_link" target="_blank">{{ product.product_link }}</a></el-descriptions-item>
+        <el-descriptions-item label="厂家名称">{{ product.manufacturer || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态"><el-tag :type="statusType[product.status]">{{ statusLabel[product.status] }}</el-tag></el-descriptions-item>
         <el-descriptions-item label="创建人">{{ product.creator?.real_name }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ product.created_at?.slice(0,19).replace('T',' ') }}</el-descriptions-item>

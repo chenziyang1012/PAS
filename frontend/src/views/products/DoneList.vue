@@ -16,6 +16,7 @@
       <div v-if="selected.length" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
         <span style="color:#606266">已选 {{ selected.length }} 项</span>
         <el-button v-if="auth.user?.role==='reviewer'||auth.user?.role==='admin'" size="small" type="danger" @click="batchDelete">批量删除</el-button>
+        <el-button size="small" type="primary" plain @click="exportExcel">导出Excel</el-button>
       </div>
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
@@ -147,6 +148,18 @@ async function batchDelete() {
   await productApi.bulkDelete(ids)
   ElMessage.success('批量删除成功')
   load()
+}
+
+function exportExcel() {
+  const rows = selected.value.map((r: any) => ({
+    '产品ID': r.product_code || '',
+    '产品链接': r.product_link || '',
+    '厂家名称': r.manufacturer || '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '已做产品')
+  XLSX.writeFile(wb, `已做产品导出_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`)
 }
 
 function handleTxtChange(file: any) {
