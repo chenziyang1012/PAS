@@ -65,7 +65,7 @@
             <template v-if="auth.user?.role!=='reviewer'">
               <el-button v-if="['draft','rejected'].includes(row.status)" size="small" type="primary" @click="router.push(`/products/${row.id}/edit`)">编辑</el-button>
               <el-button v-if="row.status==='draft'" size="small" type="success" @click="submitReview(row)">提交</el-button>
-              <el-button v-if="row.status==='draft'" size="small" type="danger" @click="del(row)">删除</el-button>
+              <el-button v-if="['draft','pending_review'].includes(row.status)" size="small" type="danger" @click="del(row)">删除</el-button>
             </template>
           </template>
         </el-table-column>
