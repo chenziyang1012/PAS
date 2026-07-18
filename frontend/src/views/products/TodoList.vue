@@ -186,8 +186,12 @@
                 <span style="font-size:13px;font-weight:bold">生成失败</span>
                 <span v-if="g.error" style="color:#909399;font-size:11px;word-break:break-all;max-height:120px;overflow-y:auto">{{ g.error }}</span>
               </div>
-              <el-button size="small" style="margin-top:6px" :disabled="g.status === 'generating' || g.status === 'pending'"
-                @click="regenerate(g.has_logo ? 'with_logo' : 'no_logo')">重新生成</el-button>
+              <div style="margin-top:6px;display:flex;gap:6px;justify-content:center">
+                <el-button size="small" :disabled="g.status === 'generating' || g.status === 'pending'"
+                  @click="regenerate(g.has_logo ? 'with_logo' : 'no_logo')">重新生成</el-button>
+                <el-button size="small" type="primary" plain :disabled="g.status !== 'done'"
+                  @click="downloadGenImage(g)">下载</el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -292,6 +296,27 @@ async function saveProductCode(row: any) {
     await productApi.updateProductCode(row.id, code)
     row.product_code = code || null
   } catch (e: any) { ElMessage.error(e || '产品ID保存失败') }
+}
+
+async function downloadGenImage(g: any) {
+  if (!g.url) return
+  const code = (genProduct.value?.product_code || '').trim()
+  if (!code) return ElMessage.warning('请先在表格里填写产品ID')
+  const filename = `${code}(${g.has_logo ? 2 : 1}).png`
+  try {
+    const resp = await fetch(g.url)
+    const blob = await resp.blob()
+    const objUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(objUrl)
+  } catch {
+    ElMessage.error('下载失败')
+  }
 }
 
 // 生图
