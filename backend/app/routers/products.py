@@ -444,10 +444,11 @@ def update_product_code(
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="产品不存在")
-    if current_user.role != "admin" and product.creator_id != current_user.id:
+    if current_user.role == "selector" and product.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作")
-    if product.special_tag != "done":
-        raise HTTPException(status_code=400, detail="只能修改已做产品的产品ID")
+    # 待做（approved 未完成）和已做产品都可修改产品ID
+    if product.special_tag != "done" and product.status != "approved":
+        raise HTTPException(status_code=400, detail="只能修改待做或已做产品的产品ID")
     product.product_code = (body.get("product_code") or "").strip() or None
     db.commit()
     return Resp(data={"product_code": product.product_code})

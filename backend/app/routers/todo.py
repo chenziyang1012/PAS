@@ -57,6 +57,7 @@ def _todo_item(p: Product, db: Session) -> dict:
         "main_image": p.main_image,
         "manufacturer": p.manufacturer,
         "status": p.status,
+        "product_code": p.product_code,
         "creator": {"username": p.creator.username, "real_name": p.creator.real_name} if p.creator else None,
         "images": [{"id": img.id, "url": img.url} for img in p.images],
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,

@@ -20,6 +20,12 @@
 
       <el-table :data="list" v-loading="loading" @selection-change="selected=$event">
         <el-table-column type="selection" width="45" />
+        <el-table-column label="产品ID" width="130">
+          <template #default="{row}">
+            <el-input v-model="row.product_code" size="small" placeholder="产品ID" clearable
+              @focus="editingCodeId=row.id" @blur="saveProductCode(row)" @keyup.enter="($event.target as HTMLInputElement).blur()" />
+          </template>
+        </el-table-column>
         <el-table-column label="主图" width="130">
           <template #default="{row}">
             <div style="position:relative;display:inline-block">
@@ -67,19 +73,6 @@
       </el-table>
       <el-pagination style="margin-top:16px" v-model:current-page="query.page" v-model:page-size="pageSize" :page-sizes="[20,50,100,200]" :total="total" @current-change="load" @size-change="onSizeChange" layout="total,sizes,prev,pager,next" />
     </el-card>
-
-    <!-- 完成对话框 -->
-    <el-dialog v-model="completeDialogVisible" title="标记完成" width="380px" @close="completeProductCode=''">
-      <el-form label-width="80px">
-        <el-form-item label="产品ID">
-          <el-input v-model="completeProductCode" placeholder="请输入公司产品ID" clearable @keyup.enter="doMarkComplete" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="completeDialogVisible=false">取消</el-button>
-        <el-button type="primary" :loading="completeLoading" @click="doMarkComplete">确认完成</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 批量导入 -->
     <el-dialog v-model="bulkImportVisible" title="批量导入产品链接（待做）" width="500px">
@@ -290,10 +283,16 @@ const bulkUrls = ref('')
 const bulkLoading = ref(false)
 
 // 完成
-const completeDialogVisible = ref(false)
-const completeProductCode = ref('')
-const completeLoading = ref(false)
-const completeTargetRow = ref<any>(null)
+const editingCodeId = ref<number | null>(null)
+
+async function saveProductCode(row: any) {
+  editingCodeId.value = null
+  const code = (row.product_code || '').trim()
+  try {
+    await productApi.updateProductCode(row.id, code)
+    row.product_code = code || null
+  } catch (e: any) { ElMessage.error(e || '产品ID保存失败') }
+}
 
 // 生图
 const genVisible = ref(false)
@@ -375,8 +374,8 @@ async function load() {
 }
 
 async function silentRefresh(force = false) {
-  // 有对话框打开时跳过，不打断用户操作（除非强制刷新）
-  if (!force && (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value || completeDialogVisible.value)) return
+  // 有对话框打开或正在编辑产品ID时跳过，不打断用户操作（除非强制刷新）
+  if (!force && (genVisible.value || bulkImportVisible.value || templateDialogVisible.value || templateEditVisible.value || editingCodeId.value !== null)) return
   try {
     const res: any = await todoApi.list({ ...query, page_size: pageSize.value })
     // 数据没变化就不替换，避免不必要的重渲染和闪屏
@@ -403,24 +402,18 @@ async function del(row: any) {
 }
 
 async function markComplete(row: any) {
-  completeTargetRow.value = row
-  completeProductCode.value = ''
-  completeDialogVisible.value = true
-}
-
-async function doMarkComplete() {
-  if (!completeProductCode.value.trim()) return ElMessage.warning('请输入产品ID')
-  completeLoading.value = true
+  if (!(row.product_code || '').trim()) return ElMessage.warning('请先在表格里填写产品ID')
+  await ElMessageBox.confirm('确认标记完成？')
   try {
-    await todoApi.complete(completeTargetRow.value.id, completeProductCode.value.trim())
+    await todoApi.complete(row.id, row.product_code.trim())
     ElMessage.success('已标记完成')
-    completeDialogVisible.value = false
     load()
   } catch (e: any) { ElMessage.error(e || '操作失败') }
-  finally { completeLoading.value = false }
 }
 
 async function batchComplete() {
+  const noCode = selected.value.filter((r: any) => !(r.product_code || '').trim())
+  if (noCode.length) return ElMessage.warning(`有 ${noCode.length} 个产品未填写产品ID，请先在表格里填写`)
   await ElMessageBox.confirm(`确认将 ${selected.value.length} 个产品标记完成？`)
   const ids = selected.value.map((r: any) => r.id)
   try {
