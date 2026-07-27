@@ -303,7 +303,7 @@ async function downloadGenImage(g: any) {
   if (!g.url) return
   const code = (genProduct.value?.product_code || '').trim()
   if (!code) return ElMessage.warning('请先在表格里填写产品ID')
-  const filename = `${code}(${g.has_logo ? 2 : 1}).png`
+  const filename = `${code}(${g.has_logo ? 1 : 2}).jpg`
   try {
     const resp = await fetch(g.url)
     const blob = await resp.blob()

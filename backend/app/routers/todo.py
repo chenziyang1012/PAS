@@ -512,14 +512,20 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
                     fh.close()
 
         def _save_and_resize(img_bytes: bytes, path: str):
-            with open(path, "wb") as f:
-                f.write(img_bytes)
             from PIL import Image
-            img = Image.open(path)
-            img = img.resize((2000, 2000), Image.LANCZOS)
-            img.save(path)
 
-        no_logo_path = os.path.join(out_dir, "no_logo.png")
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            img = img.resize((2000, 2000), Image.LANCZOS)
+            target_size = 300 * 1024
+            for quality in range(95, 19, -5):
+                output = io.BytesIO()
+                img.save(output, "JPEG", quality=quality, optimize=True)
+                if output.tell() <= target_size or quality == 20:
+                    with open(path, "wb") as f:
+                        f.write(output.getvalue())
+                    return
+
+        no_logo_path = os.path.join(out_dir, "no_logo.jpg")
         no_logo_generated = False
 
         # 第一步：用素材图生成无 logo 版
@@ -529,7 +535,7 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
                 img_bytes = _call_edit(prompt_text, temp_files)
                 _save_and_resize(img_bytes, no_logo_path)
                 ts = int(datetime.now(timezone.utc).timestamp())
-                url_path = f"/uploads/generated/{product_id}/no_logo.png?t={ts}"
+                url_path = f"/uploads/generated/{product_id}/no_logo.jpg?t={ts}"
                 _update_gen_status(db, no_logo_id, "done", url=url_path)
                 no_logo_generated = True
                 product = db.get(Product, product_id)
@@ -557,10 +563,10 @@ def _do_generate(product_id: int, no_logo_id: int | None, with_logo_id: int | No
                     else:
                         ref_files = temp_files
                     img_bytes = _call_edit(logo_prompt_text, ref_files)
-                    with_logo_path = os.path.join(out_dir, "with_logo.png")
+                    with_logo_path = os.path.join(out_dir, "with_logo.jpg")
                     _save_and_resize(img_bytes, with_logo_path)
                     ts = int(datetime.now(timezone.utc).timestamp())
-                    url_path = f"/uploads/generated/{product_id}/with_logo.png?t={ts}"
+                    url_path = f"/uploads/generated/{product_id}/with_logo.jpg?t={ts}"
                     _update_gen_status(db, with_logo_id, "done", url=url_path)
                 except Exception as e:
                     _update_gen_status(db, with_logo_id, "failed", error=str(e))
